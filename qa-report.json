@@ -1,0 +1,13 @@
+{
+  "errors": [],
+  "localSave": true,
+  "reload": true,
+  "apply": true,
+  "saveColors": true,
+  "delete": true,
+  "mobile": {
+    "width": 390,
+    "scroll": 390
+  },
+  "cloud": "disabled; requires Firebase rules and live authentication verification"
+}
