@@ -3,11 +3,13 @@
   'use strict';
   const embedded = window.parent !== window;
   if (!embedded) {
-    let enabled = true, context, master, last = -Infinity;
+    let enabled = true, context, master, echo, last = -Infinity;
     try { enabled = localStorage.getItem('porcelain-sound') !== 'off'; } catch {}
     const toggle = document.getElementById('sound-toggle');
     const paint = () => { if (toggle) { toggle.textContent = enabled ? 'Звук: вкл.' : 'Звук: выкл.'; toggle.setAttribute('aria-pressed', String(enabled)); } };
-    window.porcelainSound = (motion = false) => {
+    const notes = [659.25, 783.99, 880, 987.77, 1174.66, 1318.51, 1567.98, 1760];
+    const pitches = {'open-gallery':0,'open-comments':1,'login':2,'logout':2,'shop':3,'replay':4,'pause':0,'inspect':5,'quick-photo':6,'upload-photo':6,'large-apply':7,'sound-toggle':5,'mug-touch':2};
+    window.porcelainSound = (motion = false, key = 'sound-toggle') => {
       if (!enabled || document.hidden) return;
       const now = performance.now();
       if (now - last < (motion ? 220 : 80)) return;
@@ -15,16 +17,30 @@
       try {
         const Audio = window.AudioContext || window.webkitAudioContext;
         if (!Audio) return;
-        if (!context) { context = new Audio(); master = context.createGain(); master.gain.value = .45; master.connect(context.destination); }
+        if (!context) {
+          context = new Audio(); master = context.createGain(); master.gain.value = .45; master.connect(context.destination);
+          // Two quiet, finite reflections: no feedback loop or accumulating reverb.
+          echo = context.createGain();
+          [.115, .235].forEach((seconds, i) => {
+            const delay = context.createDelay(.3), wet = context.createGain();
+            delay.delayTime.value = seconds; wet.gain.value = i ? .09 : .19;
+            echo.connect(delay); delay.connect(wet); wet.connect(master);
+          });
+        }
         if (context.state === 'suspended') context.resume().catch(() => {});
-        const start = context.currentTime, fundamental = motion ? 1260 : 1420;
-        [1, 2.71, 4.12].forEach((ratio, i) => {
+        const hash = [...key].reduce((n, char) => (n * 31 + char.codePointAt(0)) >>> 0, 0);
+        const fundamental = notes[pitches[key] ?? hash % notes.length] * (motion ? .75 : 1);
+        const start = context.currentTime;
+        // Slightly detuned resonances create a shimmering, vibrating ceramic tail.
+        [1, 1.003, 2.71, 4.12].forEach((ratio, i) => {
           const oscillator = context.createOscillator(), gain = context.createGain();
+          const duration = (motion ? .7 : 1.65) / (1 + i * .45);
           oscillator.type = 'sine'; oscillator.frequency.value = fundamental * ratio;
           gain.gain.setValueAtTime(.0001, start);
-          gain.gain.exponentialRampToValueAtTime((motion ? .025 : .07) / (i + 1), start + .006);
-          gain.gain.exponentialRampToValueAtTime(.0001, start + .65 / (i + 1));
-          oscillator.connect(gain); gain.connect(master); oscillator.start(start); oscillator.stop(start + .7);
+          gain.gain.exponentialRampToValueAtTime((motion ? .018 : .052) * [1,.48,.23,.08][i], start + .009);
+          gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
+          oscillator.connect(gain); gain.connect(master); gain.connect(echo);
+          oscillator.start(start); oscillator.stop(start + duration + .02);
           oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
         });
       } catch { /* Audio is optional; every control keeps working. */ }
@@ -37,19 +53,19 @@
     });
     paint();
   }
-  const ring = motion => { try { (embedded ? window.parent : window).porcelainSound?.(motion); } catch {} };
+  const ring = (motion, key) => { try { (embedded ? window.parent : window).porcelainSound?.(motion, key); } catch {} };
   document.addEventListener('click', event => {
     const button = event.target.closest('button,a#shop');
-    if (event.isTrusted && button && !button.disabled && button.id !== 'sound-toggle') ring(false);
+    if (event.isTrusted && button && !button.disabled && button.id !== 'sound-toggle') ring(false, button.id || button.getAttribute('aria-label') || button.textContent.trim());
   });
   if (embedded) {
     let drag;
     document.addEventListener('pointerdown', event => {
-      if (event.isTrusted && event.target.tagName === 'CANVAS' && window.controls?.enabled) drag = {id:event.pointerId,x:event.clientX,y:event.clientY};
+      if (event.isTrusted && event.target.tagName === 'CANVAS' && window.controls?.enabled) { drag = {id:event.pointerId,x:event.clientX,y:event.clientY}; ring(false, 'mug-touch'); }
     });
     document.addEventListener('pointermove', event => {
       if (!drag || drag.id !== event.pointerId || !window.controls?.enabled) return;
-      if (Math.hypot(event.clientX-drag.x,event.clientY-drag.y) > 18) { ring(true); drag.x=event.clientX; drag.y=event.clientY; }
+      if (Math.hypot(event.clientX-drag.x,event.clientY-drag.y) > 18) { ring(true, 'mug-touch'); drag.x=event.clientX; drag.y=event.clientY; }
     });
     for (const name of ['pointerup','pointercancel','lostpointercapture']) document.addEventListener(name, () => { drag = null; });
     window.addEventListener('blur', () => { drag = null; });
