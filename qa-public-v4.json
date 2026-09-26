@@ -1,0 +1,13 @@
+{
+  "errors": [],
+  "isolatedWidget": true,
+  "explicitPublication": true,
+  "metadataOnly": true,
+  "testMode": "Mock authentication, persistent database and provider popup; actual official widget handshake; rendered image after reload; no live upload",
+  "post": {
+    "uid": "qa-user",
+    "author": "Тестовый фотограф",
+    "text": "![Фото](https://i.ibb.co/qa/photo.jpg)\nМоя фоторабота",
+    "createdAt": 123
+  }
+}

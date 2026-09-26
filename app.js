@@ -1,7 +1,7 @@
 import {firebaseConfig,cloudEnabled,shopUrl} from './config.js';
 const $=id=>document.getElementById(id),ROOT='photoPreviewV1';
 let user=null,auth,db,api,items=[],selected=null,scope='guest',revision=0,unsubscribe,commentUnsubscribe,busy=false;
-let noticeTimer,largeItem=null,publicImageUrl='';
+let noticeTimer,largeItem=null,publicImageUrl='',publicUploadPending=false,publicImageVersion=0;
 function notice(message){$('notice').textContent=message;$('notice').classList.add('visible');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('notice').classList.remove('visible'),5500);}
 const localDB=new Promise((resolve,reject)=>{const r=indexedDB.open('photo-preview-local',1);r.onupgradeneeded=()=>r.result.createObjectStore('galleries');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
 async function localRead(key){const d=await localDB;return new Promise((resolve,reject)=>{const r=d.transaction('galleries').objectStore('galleries').get(key);r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error);});}
@@ -12,7 +12,7 @@ function accountUI(){
  $('account-state').textContent=user?'Вы вошли: '+(user.displayName||'Пользователь'):'Без входа — галерея этого браузера.';
  $('cloud-state').textContent=cloudEnabled?(user?'Галерея аккаунта. Фото сохраняются между устройствами.':'Войдите через Google для облачного сохранения. Гостевые фото остаются на устройстве.'):'Сейчас снимки сохраняются только в этом браузере. Облачная синхронизация ещё не подключена.';
  $('comments-state').textContent=cloudEnabled?(user?'Поделитесь фотографией и подписью — публикацию увидят все.':'Войдите через Google, чтобы опубликовать работу.'):'Публикация отзывов ещё не подключена.';
- $('comment-text').disabled=$('send-comment').disabled=!(cloudEnabled&&user&&api);
+ $('comment-text').disabled=!(cloudEnabled&&user&&api);$('send-comment').disabled=!(cloudEnabled&&user&&api)||publicUploadPending;
 }
 function render(){
  $('count').textContent=items.length;$('gallery-empty').hidden=items.length>0;const grid=$('gallery-grid');grid.replaceChildren();
@@ -60,16 +60,29 @@ $('logout').onclick=async()=>{try{await api.signOut(auth);notice('Вы вышл�
 let comments=[];
 function renderComments(){const list=$('comment-list');list.replaceChildren();for(const c of comments){const el=node('article',undefined,'comment');el.append(node('strong',c.author||'Посетитель'));const match=String(c.text||'').match(/^!\[Фото\]\((https:\/\/i\.ibb\.co\/[^\s)]+)\)\n?/);if(match){const pic=node('img');pic.src=match[1];pic.alt='Работа '+(c.author||'посетителя');pic.loading='lazy';pic.referrerPolicy='no-referrer';pic.tabIndex=0;pic.setAttribute('role','button');pic.setAttribute('aria-label','Открыть фотографию крупно');pic.onclick=()=>showLarge({name:c.author||'Фотография',data:match[1]});pic.onkeydown=e=>{if(e.key==='Enter')pic.click();};el.append(pic);}el.append(node('p',match?c.text.slice(match[0].length):c.text),node('time',new Date(c.createdAt).toLocaleString('ru-RU')));if(user?.uid===c.uid){const del=node('button','Удалить');del.onclick=async()=>{if(!confirm('Удалить публикацию? Сам файл на ImgBB останется: его удаляют отдельно на ImgBB.'))return;try{await api.remove(api.ref(db,ROOT+'/comments/'+c.id));}catch{notice('Не удалось удалить отзыв.');}};el.append(del);}list.append(el);}}
 function listenComments(){commentUnsubscribe?.();commentUnsubscribe=api.onValue(api.query(api.ref(db,ROOT+'/comments'),api.orderByChild('createdAt'),api.limitToLast(50)),s=>{comments=Object.entries(s.val()||{}).map(([id,v])=>({...v,id})).sort((a,b)=>b.createdAt-a.createdAt);renderComments();},()=>{$('comments-state').textContent='Отзывы временно недоступны.';});}
-$('comment-form').onsubmit=async e=>{e.preventDefault();const caption=$('comment-text').value.trim();const text=(publicImageUrl?'![Фото]('+publicImageUrl+')\n':'')+caption;if(!user||!cloudEnabled||!api||!text)return;if(text.length>500){notice('Сократите подпись: вместе со ссылкой допускается 500 символов.');return;}$('send-comment').disabled=true;try{await api.set(api.push(api.ref(db,ROOT+'/comments')),{uid:user.uid,author:(user.displayName||'Посетитель').slice(0,80),text,createdAt:api.serverTimestamp()});$('comment-text').value='';clearPublic();notice('Работа опубликована в общей галерее.');}catch{notice('Не удалось опубликовать отзыв.');}finally{accountUI();}};
+$('comment-form').onsubmit=async e=>{e.preventDefault();if(publicUploadPending){notice('Дождитесь фотографии в предпросмотре или отмените её добавление.');return;}const caption=$('comment-text').value.trim();const text=(publicImageUrl?'![Фото]('+publicImageUrl+')\n':'')+caption;if(!user||!cloudEnabled||!api||!text)return;if(text.length>500){notice('Сократите подпись: вместе со ссылкой допускается 500 символов.');return;}$('send-comment').disabled=true;try{await api.set(api.push(api.ref(db,ROOT+'/comments')),{uid:user.uid,author:(user.displayName||'Посетитель').slice(0,80),text,createdAt:api.serverTimestamp()});$('comment-text').value='';clearPublic();notice('Работа опубликована в общей галерее.');}catch{notice('Не удалось опубликовать отзыв.');}finally{accountUI();}};
 accountUI();loadScope();initFirebase().then(()=>accountUI()).catch(()=>{$('account-state').textContent='Google пока недоступен. Локальная примерка работает.';});
 
-function clearPublic(){publicImageUrl='';$('public-preview').hidden=true;$('public-image').removeAttribute('src');$('comment-text').required=true;}
-$('remove-public').onclick=clearPublic;
+function clearPublic(){publicImageUrl='';publicUploadPending=false;publicImageVersion++;$('public-preview').hidden=true;$('public-image').removeAttribute('src');$('comment-text').required=true;$('upload-host').replaceChildren();$('upload-host').hidden=false;$('attach-public').hidden=false;$('cancel-public').hidden=true;$('upload-status').textContent='';accountUI();}
+$('remove-public').onclick=$('cancel-public').onclick=clearPublic;
 $('attach-public').onclick=()=>{
  if(!user){notice('Сначала войдите через Google.');return;}
  if($('imgbb-uploader'))return;
- const f=document.createElement('iframe');f.id='imgbb-uploader';f.title='Загрузка общедоступного фото в ImgBB';f.setAttribute('sandbox','allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');f.src='./imgbb-uploader.html';$('upload-host').append(f);
+ publicUploadPending=true;$('upload-status').textContent='Завершите загрузку в окне ImgBB. Здесь должен появиться снимок перед публикацией.';$('cancel-public').hidden=false;$('attach-public').hidden=true;accountUI();
+ const f=document.createElement('iframe');f.id='imgbb-uploader';f.title='Загрузка общедоступного фото в ImgBB';f.setAttribute('sandbox','allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');f.src='./imgbb-uploader.html?v=4';$('upload-host').append(f);
 };
-addEventListener('message',e=>{const f=$('imgbb-uploader');if(!f||e.source!==f.contentWindow||e.origin!=='null'||e.data?.type!=='public-image')return;try{const u=new URL(e.data.url);if(u.protocol!=='https:'||u.hostname!=='i.ibb.co'||u.username||u.password||u.href.length>300)return;publicImageUrl=u.href;$('public-image').src=u.href;$('public-preview').hidden=false;$('comment-text').required=false;notice('Фото прикреплено. Нажмите «Опубликовать», чтобы показать его в галерее.');}catch{}});
+addEventListener('message',async e=>{
+ const f=$('imgbb-uploader');if(!f||e.source!==f.contentWindow||e.origin!=='null'||e.data?.type!=='public-image')return;
+ let version;
+ try{
+  const u=new URL(e.data.url);if(u.protocol!=='https:'||u.hostname!=='i.ibb.co'||u.username||u.password||u.href.length>300)return;
+  version=++publicImageVersion;publicUploadPending=true;publicImageUrl='';accountUI();$('upload-status').textContent='Проверяю фотографию…';
+  const img=new Image();img.referrerPolicy='no-referrer';const loaded=new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('Не удалось открыть фото. Проверьте ссылку или загрузите его ещё раз.'));});img.src=u.href;
+  let timer;try{await Promise.race([loaded,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Фото долго загружается. Попробуйте ещё раз.')),15000);})]);}finally{clearTimeout(timer);}
+  if(version!==publicImageVersion)return;
+  publicImageUrl=u.href;publicUploadPending=false;$('public-image').src=u.href;$('public-preview').hidden=false;$('comment-text').required=false;$('upload-host').hidden=true;
+  $('upload-status').textContent='Фото прикреплено. Теперь можно опубликовать.';accountUI();
+ }catch(err){if(version!==publicImageVersion)return;$('upload-status').textContent=err.message||'Не удалось прикрепить фото.';publicUploadPending=true;accountUI();}
+});
 
 $('photo-zoom').onclick=()=>{const zoomed=$('photo-scroll').classList.toggle('zoomed');$('photo-zoom').setAttribute('aria-pressed',String(zoomed));$('photo-zoom').textContent=zoomed?'Показать целиком':'Увеличить ×2';};
