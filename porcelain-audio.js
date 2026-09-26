@@ -45,7 +45,7 @@
         });
       } catch { /* Audio is optional; every control keeps working. */ }
     };
-    // A soft, filtered paper rub follows the actual photo-bending progress.
+    // Smooth air follows the flight; a separate soft contact ends the movement.
     window.porcelainPaper = (active, progress = 0) => {
       if (!active || !enabled || document.hidden || !context || context.state !== 'running') {
         if (paper) { paper.source.stop(); paper = null; }
@@ -56,24 +56,54 @@
           if (!paperBuffer) {
             paperBuffer = context.createBuffer(1, context.sampleRate * 3, context.sampleRate);
             const samples = paperBuffer.getChannelData(0);
+            let smooth = 0;
             for (let i = 0; i < samples.length; i++) {
               const t = i / context.sampleRate;
-              const folds = .5 + .22 * Math.sin(t * 31) + .12 * Math.sin(t * 83);
-              samples[i] = (Math.random() * 2 - 1) * folds;
+              smooth = .93 * smooth + .07 * (Math.random() * 2 - 1);
+              samples[i] = smooth * (1.3 + .15 * Math.sin(t * 2));
             }
           }
           const source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain();
           source.buffer = paperBuffer; source.loop = true;
-          filter.type = 'bandpass'; filter.frequency.value = 1900; filter.Q.value = .55;
+          filter.type = 'lowpass'; filter.frequency.value = 1100; filter.Q.value = .5;
           gain.gain.value = 0;
           source.connect(filter); filter.connect(gain); gain.connect(master);
           source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
           source.start(); paper = {source, gain, filter};
         }
         const p = Math.max(0, Math.min(1, progress));
-        paper.gain.gain.setTargetAtTime(.12 * Math.sin(Math.PI * p), context.currentTime, .04);
-        paper.filter.frequency.setTargetAtTime(2200 - 850 * p, context.currentTime, .05);
+        paper.gain.gain.setTargetAtTime(.24 * Math.sin(Math.PI * p), context.currentTime, .04);
+        paper.filter.frequency.setTargetAtTime(750 + 700 * Math.sin(Math.PI * p), context.currentTime, .05);
       } catch { if (paper) { paper.source.stop(); paper = null; } }
+    };
+    window.porcelainContact = () => {
+      if (!enabled || document.hidden || !context || context.state !== 'running') return;
+      try {
+        const start = context.currentTime;
+        // Rounded, breathy "kiss": brief air compression and a quiet falling tone.
+        const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * .22), context.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        const air = context.createBufferSource(), filter = context.createBiquadFilter(), breath = context.createGain();
+        air.buffer = buffer; filter.type = 'bandpass'; filter.Q.value = .8;
+        filter.frequency.setValueAtTime(1100, start);
+        filter.frequency.exponentialRampToValueAtTime(450, start + .18);
+        breath.gain.setValueAtTime(.0001, start);
+        breath.gain.exponentialRampToValueAtTime(.055, start + .035);
+        breath.gain.exponentialRampToValueAtTime(.0001, start + .21);
+        air.connect(filter); filter.connect(breath); breath.connect(master);
+        air.onended = () => { air.disconnect(); filter.disconnect(); breath.disconnect(); };
+        air.start(start); air.stop(start + .22);
+        const tone = context.createOscillator(), touch = context.createGain();
+        tone.type = 'sine'; tone.frequency.setValueAtTime(420, start);
+        tone.frequency.exponentialRampToValueAtTime(190, start + .13);
+        touch.gain.setValueAtTime(.0001, start);
+        touch.gain.exponentialRampToValueAtTime(.032, start + .018);
+        touch.gain.exponentialRampToValueAtTime(.0001, start + .16);
+        tone.connect(touch); touch.connect(master);
+        tone.onended = () => { tone.disconnect(); touch.disconnect(); };
+        tone.start(start); tone.stop(start + .18);
+      } catch { /* Optional sound must never interrupt the animation. */ }
     };
     toggle?.addEventListener('click', () => {
       enabled = !enabled;
@@ -91,10 +121,15 @@
   });
   if (embedded) {
     const paperSound = (active, progress) => { try { window.parent.porcelainPaper?.(active, progress); } catch {} };
+    let previousTime = null;
     function followPhoto() {
       const state = window.demo?.getState();
-      const active = !document.hidden && state?.running && state.time >= 3.65 && state.time < 6.25;
-      paperSound(Boolean(active), active ? (state.time - 3.65) / 2.6 : 0);
+      const active = !document.hidden && state?.running && state.time >= 3.1 && state.time < 6.25;
+      paperSound(Boolean(active), active ? (state.time - 3.1) / 3.15 : 0);
+      if (!document.hidden && state?.running && previousTime !== null && previousTime < 6.25 && state.time >= 6.25 && state.time - previousTime < .3) {
+        try { window.parent.porcelainContact?.(); } catch {}
+      }
+      previousTime = !document.hidden && state?.running ? state.time : null;
       requestAnimationFrame(followPhoto);
     }
     requestAnimationFrame(followPhoto);
