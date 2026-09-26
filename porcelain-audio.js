@@ -3,7 +3,7 @@
   'use strict';
   const embedded = window.parent !== window;
   if (!embedded) {
-    let enabled = true, context, master, echo, paper, paperBuffer, last = -Infinity;
+    let enabled = true, context, master, echo, paper, paperBuffer, spin, last = -Infinity;
     try { enabled = localStorage.getItem('porcelain-sound') !== 'off'; } catch {}
     const toggle = document.getElementById('sound-toggle');
     const paint = () => { if (toggle) { toggle.textContent = enabled ? 'Звук: вкл.' : 'Звук: выкл.'; toggle.setAttribute('aria-pressed', String(enabled)); } };
@@ -72,9 +72,36 @@
           source.start(); paper = {source, gain, filter};
         }
         const p = Math.max(0, Math.min(1, progress));
-        paper.gain.gain.setTargetAtTime(.24 * Math.sin(Math.PI * p), context.currentTime, .04);
-        paper.filter.frequency.setTargetAtTime(750 + 700 * Math.sin(Math.PI * p), context.currentTime, .05);
+        paper.gain.gain.setTargetAtTime(.035 * Math.sin(Math.PI * Math.min(1, p / .9)) * (.7 + .3 * Math.sin(p * Math.PI * 8) ** 2), context.currentTime, .04);
+        paper.filter.frequency.setTargetAtTime(600 + 350 * Math.sin(Math.PI * p), context.currentTime, .05);
       } catch { if (paper) { paper.source.stop(); paper = null; } }
+    };
+    // A continuous, very quiet ceramic shimmer accompanies the automatic turn.
+    window.porcelainSpin = (active, progress = 0) => {
+      if (!active || !enabled || document.hidden || !context || context.state !== 'running') {
+        if (spin) {
+          for (const voice of spin) {
+            voice.gain.gain.setTargetAtTime(0, context.currentTime, .025);
+            voice.oscillator.stop(context.currentTime + .12);
+          }
+          spin = null;
+        }
+        return;
+      }
+      try {
+        if (!spin) spin = [523.25, 784.88].map(frequency => {
+          const oscillator = context.createOscillator(), gain = context.createGain();
+          oscillator.type = 'sine'; oscillator.frequency.value = frequency; gain.gain.value = 0;
+          oscillator.connect(gain); gain.connect(master);
+          oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+          oscillator.start(); return {oscillator, gain, frequency};
+        });
+        const p = Math.max(0, Math.min(1, progress));
+        spin.forEach((voice, i) => {
+          voice.gain.gain.setTargetAtTime((i ? .003 : .007) * Math.sin(Math.PI * p), context.currentTime, .08);
+          voice.oscillator.frequency.setTargetAtTime(voice.frequency * (1 + .012 * Math.sin(p * Math.PI * 2)), context.currentTime, .08);
+        });
+      } catch { /* No sound must block the viewer. */ }
     };
     window.porcelainContact = () => {
       if (!enabled || document.hidden || !context || context.state !== 'running') return;
@@ -89,7 +116,7 @@
         filter.frequency.setValueAtTime(1100, start);
         filter.frequency.exponentialRampToValueAtTime(450, start + .18);
         breath.gain.setValueAtTime(.0001, start);
-        breath.gain.exponentialRampToValueAtTime(.055, start + .035);
+        breath.gain.exponentialRampToValueAtTime(.065, start + .035);
         breath.gain.exponentialRampToValueAtTime(.0001, start + .21);
         air.connect(filter); filter.connect(breath); breath.connect(master);
         air.onended = () => { air.disconnect(); filter.disconnect(); breath.disconnect(); };
@@ -98,7 +125,7 @@
         tone.type = 'sine'; tone.frequency.setValueAtTime(420, start);
         tone.frequency.exponentialRampToValueAtTime(190, start + .13);
         touch.gain.setValueAtTime(.0001, start);
-        touch.gain.exponentialRampToValueAtTime(.032, start + .018);
+        touch.gain.exponentialRampToValueAtTime(.044, start + .018);
         touch.gain.exponentialRampToValueAtTime(.0001, start + .16);
         tone.connect(touch); touch.connect(master);
         tone.onended = () => { tone.disconnect(); touch.disconnect(); };
@@ -107,7 +134,7 @@
     };
     toggle?.addEventListener('click', () => {
       enabled = !enabled;
-      if (!enabled) window.porcelainPaper(false);
+      if (!enabled) { window.porcelainPaper(false); window.porcelainSpin(false); }
       if (master) master.gain.setValueAtTime(enabled ? .45 : 0, context.currentTime);
       try { localStorage.setItem('porcelain-sound', enabled ? 'on' : 'off'); } catch {}
       paint(); if (enabled) window.porcelainSound();
@@ -121,6 +148,7 @@
   });
   if (embedded) {
     const paperSound = (active, progress) => { try { window.parent.porcelainPaper?.(active, progress); } catch {} };
+    const spinSound = (active, progress) => { try { window.parent.porcelainSpin?.(active, progress); } catch {} };
     let previousTime = null;
     function followPhoto() {
       const state = window.demo?.getState();
@@ -129,12 +157,14 @@
       if (!document.hidden && state?.running && previousTime !== null && previousTime < 6.25 && state.time >= 6.25 && state.time - previousTime < .3) {
         try { window.parent.porcelainContact?.(); } catch {}
       }
+      const turning = !document.hidden && state?.running && state.time >= 7.8 && state.time < 13.8;
+      spinSound(Boolean(turning), turning ? (state.time - 7.8) / 6 : 0);
       previousTime = !document.hidden && state?.running ? state.time : null;
       requestAnimationFrame(followPhoto);
     }
     requestAnimationFrame(followPhoto);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) paperSound(false); });
-    window.addEventListener('pagehide', () => paperSound(false));
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { paperSound(false); spinSound(false); } });
+    window.addEventListener('pagehide', () => { paperSound(false); spinSound(false); });
     let drag;
     document.addEventListener('pointerdown', event => {
       if (event.isTrusted && event.target.tagName === 'CANVAS' && window.controls?.enabled) { drag = {id:event.pointerId,x:event.clientX,y:event.clientY}; ring(false, 'mug-touch'); }
