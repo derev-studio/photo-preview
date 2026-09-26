@@ -26,8 +26,8 @@ let mug,surface,photo,atlas,blankAtlas,photoPlane,photoGeo,frame,trail,points,ma
 const duration=14.3;
 const ease=x=>{x=THREE.MathUtils.clamp(x,0,1);return x*x*x*(x*(x*6-15)+10);};
 const lerp=THREE.MathUtils.lerp;
-const startPos=new THREE.Vector3(-.034,.079,.053),endPos=new THREE.Vector3(.041,CY,R+.00005);
-const flight=new THREE.CubicBezierCurve3(startPos,new THREE.Vector3(-.035,.104,.077),new THREE.Vector3(.023,.103,.073),endPos);
+const startPos=new THREE.Vector3(.046,.09,.18),endPos=new THREE.Vector3(.041,CY,R+.0002);
+const flight=new THREE.CubicBezierCurve3(startPos,new THREE.Vector3(.035,.11,.15),new THREE.Vector3(.041,.075,.10),endPos);
 const COLS=144,ROWS=12;
 function paintFrame(ctx,src){
  const w=src.videoWidth||src.width,h=src.videoHeight||src.height;
@@ -48,7 +48,7 @@ function buildPhoto(){
  for(let j=0;j<=ROWS;j++)for(let i=0;i<=COLS;i++){p.push((i/COLS-.5)*W,(.5-j/ROWS)*H,0);uv.push(i/COLS,j/ROWS);}
  for(let j=0;j<ROWS;j++)for(let i=0;i<COLS;i++){const a=j*(COLS+1)+i,b=a+COLS+1;ind.push(a,b,a+1,a+1,b,b+1);}
  photoGeo.setAttribute('position',new THREE.Float32BufferAttribute(p,3));photoGeo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));photoGeo.setIndex(ind);photoGeo.computeVertexNormals();photoGeo.computeBoundingSphere();
- photoPlane=new THREE.Mesh(photoGeo,new THREE.MeshPhysicalMaterial({map:photo,roughness:.35,metalness:0,clearcoat:.25,clearcoatRoughness:.2,side:THREE.DoubleSide,transparent:true,opacity:0}));photoPlane.castShadow=true;scene.add(photoPlane);
+ photoPlane=new THREE.Mesh(photoGeo,new THREE.MeshPhysicalMaterial({map:photo,roughness:.35,metalness:0,clearcoat:.25,clearcoatRoughness:.2,side:THREE.DoubleSide,transparent:true,opacity:0}));photoPlane.castShadow=false;photoPlane.material.depthWrite=false;photoPlane.renderOrder=2;mug.add(photoPlane);
  frame=new THREE.Mesh(new THREE.BoxGeometry(W+.0024,H+.0024,.0006),new THREE.MeshPhysicalMaterial({color:'#fffdf7',roughness:.45,transparent:true,opacity:0}));scene.add(frame);
  const tgeo=new THREE.BufferGeometry();tgeo.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(42*3),3));trail=new THREE.Line(tgeo,new THREE.LineBasicMaterial({color:'#d2a650',transparent:true,opacity:0,depthWrite:false}));scene.add(trail);
  const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,0,32,32,32);gr.addColorStop(0,'rgba(255,248,213,1)');gr.addColorStop(.2,'rgba(255,222,153,.75)');gr.addColorStop(1,'rgba(255,206,125,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);
@@ -59,11 +59,11 @@ function buildPhoto(){
  const pgeo=new THREE.BufferGeometry();pgeo.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(30*3),3));points=new THREE.Points(pgeo,new THREE.PointsMaterial({map:new THREE.CanvasTexture(c),color:0xffdc96,size:.0018,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));scene.add(points);
 }
 function bendPhoto(b){
- const a=photoGeo.attributes.position,k=b/R;
+ const a=photoGeo.attributes.position,k=b/(R+.0002);
  for(let j=0;j<=ROWS;j++)for(let i=0;i<=COLS;i++){const s=(i/COLS-.5)*W,t=k*s,idx=j*(COLS+1)+i;a.setXYZ(idx,b<.00001?s:Math.sin(t)/k,(.5-j/ROWS)*H,b<.00001?0:(Math.cos(t)-1)/k);}
  a.needsUpdate=true;photoGeo.computeVertexNormals();photoGeo.computeBoundingSphere();
 }
-function setPrint(enabled){if(printed===enabled)return;printed=enabled;surface.material.map=enabled?atlas:blankAtlas;surface.material.color.set(enabled?'#ffffff':bodyColor);}
+function setPrint(enabled){if(printed===enabled)return;printed=enabled;surface.material.map=blankAtlas;surface.material.color.set(bodyColor);}
 function updateUI(t){
  const phase=t<1.2?0:t<6.5?1:2;const visible=t>=6.5;$('customizer').classList.toggle('visible',visible);$('customizer').inert=!visible;
  document.querySelectorAll('.step').forEach((e,i)=>e.classList.toggle('active',i===phase));
@@ -74,13 +74,23 @@ function updateUI(t){
 function renderAt(t){
  if(!ready)return;t=THREE.MathUtils.clamp(t,0,duration);elapsed=t;
  syncLiving(t);setPrint(t>=6.25);
- const flightT=ease((t-1.45)/4.8),bend=ease((t-3.65)/2.6);
- const pos=flight.getPoint(flightT);pos.y+=Math.sin(t*2.7)*.004*(1-ease((t-2)/1.8));photoPlane.position.copy(pos);photoPlane.rotation.set(lerp(-.06,0,ease((t-2.2)/2.5)),lerp(.12,0,ease((t-2.2)/2.5)),lerp(-.12,0,ease((t-2.2)/2.5)));
+ const flightT=ease((t-3.1)/3.15),bend=ease((t-3.65)/2.6);
+ const pos=flight.getPoint(flightT);
+ const distance=camera.position.distanceTo(startPos),viewH=2*distance*Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
+ const largeScale=Math.min(viewH*.64/H,viewH*camera.aspect*.84/W);
+ photoPlane.scale.setScalar(lerp(largeScale,1,ease((t-3.1)/2.9)));
+ photoPlane.quaternion.copy(camera.quaternion).slerp(new THREE.Quaternion(),ease((t-3.1)/2.4));
+ photoPlane.position.copy(pos);photoPlane.position.x-=pivot.position.x;
  bendPhoto(bend);
- photoPlane.material.opacity=ease((t-.7)/.75)*(1-ease((t-6.3)/.4));photoPlane.visible=t<6.7&&t>.7;
- // Reveal the aligned print underneath at contact, then fade the flying sheet over 400 ms.
+ // Keep every vertex outside the ceramic during wrapping, including the edges.
+ photoPlane.updateMatrix();const vertices=photoGeo.attributes.position,v=new THREE.Vector3();let clearance=0;
+ for(let i=0;i<vertices.count;i++){v.fromBufferAttribute(vertices,i).applyMatrix4(photoPlane.matrix);if(v.y>=0&&v.y<=.095&&Math.abs(v.x)<R+.00015){clearance=Math.max(clearance,Math.sqrt((R+.00015)**2-v.x*v.x)-v.z);}}
+ photoPlane.position.z+=Math.max(0,clearance);pos.z=photoPlane.position.z;
+ photoPlane.material.opacity=ease((t-.7)/.75);photoPlane.visible=t>.7;
+ photoPlane.userData.clearance=clearance;
+ // The same photograph stays on the mug and rotates with it: no texture handoff.
  photoPlane.material.roughness=lerp(.35,.19,bend);photoPlane.material.clearcoat=lerp(.25,.65,bend);photoPlane.material.clearcoatRoughness=lerp(.2,.12,bend);
- frame.position.copy(pos);frame.quaternion.copy(photoPlane.quaternion);frame.translateZ(-.00036);frame.material.opacity=photoPlane.material.opacity*(1-ease((t-3.5)/.55));frame.visible=frame.material.opacity>.001&&t<6.5;
+ frame.position.copy(pos);frame.quaternion.copy(photoPlane.quaternion);frame.scale.copy(photoPlane.scale);frame.translateZ(-.00036);frame.material.opacity=photoPlane.material.opacity*(1-ease((t-3.05)/.45));frame.visible=frame.material.opacity>.001&&t<6.5;
  const shimmer=ease((t-1.4)/.5)*(1-ease((t-5.5)/.65));trail.material.opacity=.75*shimmer;points.material.opacity=.9*shimmer;
  const tr=trail.geometry.attributes.position;
  for(let i=0;i<42;i++){const tt=Math.max(0,flightT-.23+i/41*.23),v=flight.getPoint(tt);tr.setXYZ(i,v.x,v.y-.022,v.z-.005);}tr.needsUpdate=true;trail.geometry.computeBoundingSphere();
@@ -120,7 +130,7 @@ function repaint(){
 }
 function applyColors(){
  ceramicMaterials.forEach(m=>m.color.set(bodyColor));handleMaterials.forEach(m=>m.color.set(handleColor));
- if(surface)surface.material.color.set(printed?'#ffffff':bodyColor);repaint();
+ if(surface)surface.material.color.set(bodyColor);repaint();
  for(const [kind,value] of [['body',bodyColor],['handle',handleColor]])document.querySelectorAll('[data-color-kind="'+kind+'"]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.hex===value)));
  $('body-name').textContent=bodyPalette.find(p=>p[1]===bodyColor)?.[0]||'';$('handle-name').textContent=handlePalette.find(p=>p[1]===handleColor)?.[0]||'';
 }
@@ -168,7 +178,7 @@ async function main(){
  const gltf=await new GLTFLoader().loadAsync('./heart-mug.glb');mug=gltf.scene;pivot.add(mug);mug.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});surface=mug.getObjectByName('Mug_Print_Surface');surface.material=surface.material.clone();surface.material.map=blankAtlas;mug.traverse(o=>{if(o.isMesh&&o!==surface){o.material=o.material.clone();if(o.name==='Heart_Handle')handleMaterials.push(o.material);else ceramicMaterials.push(o.material);}});buildPhoto();buildCustomizer();applyColors();
  ready=true;$('loading').classList.add('hidden');document.querySelectorAll('button').forEach(b=>b.disabled=false);running=!matchMedia('(prefers-reduced-motion: reduce)').matches;renderAt(running?0:duration);
  window.demo={seek:async t=>{running=false;home();await seekClip(Math.min(freezeTime,Math.max(0,(t-.7)/5.05*freezeTime)));renderAt(t);renderer.render(scene,camera);},play:()=>{running=true;},getState:()=>({time:elapsed,running,printed,photoVisible:photoPlane.visible,photoOpacity:photoPlane.material.opacity,printMapReady:!!surface.material.map,bend:ease((elapsed-3.65)/2.6),rotation:pivot.rotation.y,controls:controls.enabled,videoTime:clip.currentTime,videoPaused:clip.paused,freezeTime,customPhoto:!!customImage,fitMode,bodyColor,handleColor}),exportPrinted:async()=>{running=false;renderAt(duration);const result=await new GLTFExporter().parseAsync(mug,{binary:true,onlyVisible:true});return Array.from(new Uint8Array(result));},atlas:()=>c.toDataURL('image/png')};
- window.clip=clip;window.camera=camera;window.controls=controls;window.renderer=renderer;window.mug=mug;window.__ready=true;
+ window.clip=clip;window.camera=camera;window.controls=controls;window.renderer=renderer;window.mug=mug;window.photoPlane=photoPlane;window.__ready=true;
 }
 main().catch(e=>{$('loading').textContent='Не удалось открыть 3D. Попробуйте открыть файл в Chrome.';window.__error=String(e);console.error(e);});
 
@@ -181,7 +191,7 @@ addEventListener('message',async e=>{
   const im=new Image();im.src=data;await im.decode();customImage=im;fitMode='contain';
   if(/^#[0-9a-f]{6}$/i.test(body||''))bodyColor=body;
   if(/^#[0-9a-f]{6}$/i.test(handle||''))handleColor=handle;
-  applyColors();showFinished();$('photo-name').textContent=name||'Моя фотография';
+  applyColors();home();running=true;renderAt(0);$('photo-name').textContent=name||'Моя фотография';
   $('fit-options').hidden=false;$('restore-demo').hidden=false;
   $('photo-message').textContent='Снимок из вашей галереи. Нажмите «Повторить» для волшебного подлёта.';
   parent.postMessage({type:'preview-applied'},location.origin);
