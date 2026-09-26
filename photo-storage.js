@@ -1,4 +1,4 @@
-import {photoStorage} from './config.js?v=5';
+import {photoStorage} from './config.js?v=6';
 export const storageReady=!!(photoStorage.cloudName&&photoStorage.uploadPreset);
 export function isPhotoUrl(value){
  if(typeof value!=='string'||value.length>300)return false;

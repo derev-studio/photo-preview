@@ -1,0 +1,19 @@
+{
+  "cloudName": "i1lysqxk",
+  "preset": "kaktus",
+  "realUpload": true,
+  "imageDownload": {
+    "status": 200,
+    "validPNG": true,
+    "bytes": 1949,
+    "cors": "*"
+  },
+  "personalGallery": "Cloudinary files with browser-local link index until Firebase URL rules are applied",
+  "checks": [
+    "storageReady true",
+    "HTTPS photo URL validation passes",
+    "personal URL saved locally without Firebase photo write",
+    "JavaScript syntax and diff checks pass"
+  ],
+  "publicPublication": "Existing UI/database flow tested with mocks previously; live authenticated publication still requires owner check"
+}

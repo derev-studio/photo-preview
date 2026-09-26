@@ -74,3 +74,5 @@ To enable:
 Cloudinary Free has a shared credit allowance for storage, delivery and processing,
 not unlimited storage. Deleting a gallery entry removes its metadata/local copy;
 provider files must be managed separately by the owner. Originals should be kept.
+
+Current connection: owner cloud `i1lysqxk`, existing unsigned preset `kaktus`. Real upload and image delivery (HTTP 200 with CORS) verified. Preset settings are unchanged. Public image attachment is enabled. Personal photos upload to Cloudinary, but their link index stays in this browser while `galleryLinkSyncEnabled=false`. After applying only the isolated gallery URL rules, enable that flag to restore account synchronization.

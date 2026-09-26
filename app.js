@@ -1,5 +1,5 @@
-import {firebaseConfig,cloudEnabled,shopUrl} from './config.js?v=5';
-import {storageReady,uploadPhoto,isPhotoUrl} from './photo-storage.js?v=5';
+import {firebaseConfig,cloudEnabled,shopUrl,galleryLinkSyncEnabled} from './config.js?v=6';
+import {storageReady,uploadPhoto,isPhotoUrl} from './photo-storage.js?v=6';
 const $=id=>document.getElementById(id),ROOT='photoPreviewV1';
 let user=null,auth,db,api,items=[],selected=null,scope='guest',revision=0,unsubscribe,commentUnsubscribe,busy=false;
 let noticeTimer,largeItem=null,publicImageUrl='',publicUploadPending=false,publicImageVersion=0,uploadController=null,posting=false;
@@ -11,7 +11,7 @@ function node(tag,text,cls){const el=document.createElement(tag);if(text!==undef
 function accountUI(){
  $('login').hidden=!!user;$('logout').hidden=!user;
  $('account-state').textContent=user?'Вы вошли: '+(user.displayName||'Пользователь'):'Без входа — галерея этого браузера.';
- $('cloud-state').textContent=storageReady&&cloudEnabled?(user?'Фото сохраняются между устройствами. Файлы доступны по прямой ссылке, но не публикуются в общей галерее автоматически.':'Войдите через Google для облачного сохранения. Гостевые фото остаются на устройстве.'):'Новые снимки сохраняются только в этом браузере. Облачное фотохранилище ещё не подключено. Ранее сохранённые фото аккаунта доступны после входа.';
+ $('cloud-state').textContent=storageReady&&cloudEnabled?(user?(galleryLinkSyncEnabled?'Фото сохраняются между устройствами. Файлы доступны по прямой ссылке, но не публикуются в общей галерее автоматически.':'Снимки загружаются в фотохранилище. Личный список пока сохраняется только в этом браузере; общая галерея доступна всем.'):'Войдите через Google для облачного сохранения. Гостевые фото остаются на устройстве.'):'Новые снимки сохраняются только в этом браузере. Облачное фотохранилище ещё не подключено. Ранее сохранённые фото аккаунта доступны после входа.';
  $('comments-state').textContent=cloudEnabled?(user?'Поделитесь фотографией и подписью — публикацию увидят все.':'Войдите через Google, чтобы опубликовать работу.'):'Публикация отзывов ещё не подключена.';
  $('comment-text').disabled=!(cloudEnabled&&user&&api);$('send-comment').disabled=!(cloudEnabled&&user&&api)||publicUploadPending||posting;
 }
@@ -30,7 +30,7 @@ async function loadScope(){const current=++revision;unsubscribe?.();unsubscribe=
 }
 async function write(item){const key=scope,token=revision;
  // Firebase receives links only. Existing inline photos remain readable, never re-uploaded silently.
- if(cloudEnabled&&user&&api&&isPhotoUrl(item.data)){
+ if(cloudEnabled&&galleryLinkSyncEnabled&&user&&api&&isPhotoUrl(item.data)){
   await api.set(api.ref(db,ROOT+'/galleries/'+user.uid+'/'+item.id),item);
   const saved=await localRead(key);await localWrite(key,saved.filter(x=>x.id!==item.id));
  }else{const saved=await localRead(key);await localWrite(key,[...saved.filter(x=>x.id!==item.id),item]);}
@@ -45,7 +45,7 @@ async function compress(file){
 }
 async function add(file,preview=true){if(busy)return;busy=true;const token=revision;try{
  if(items.length>=20)throw Error('В галерее уже 20 фото. Удалите ненужное, чтобы добавить новое.');notice('Готовлю снимок…');let data=await compress(file);if(cloudEnabled&&user&&storageReady){notice('Загружаю фотографию…');data=await uploadPhoto(data);}if(token!==revision)throw Error('Аккаунт изменился. Добавьте фото ещё раз.');
- const state=$('viewer').contentWindow.demo?.getState();const item={id:Array.from({length:20},(_,i)=>'p'+i).find(id=>!items.some(x=>x.id===id)),name:file.name.slice(0,120),data,createdAt:Date.now(),body:state?.bodyColor||'#f7f7f7',handle:state?.handleColor||'#ffd02a'};await write(item);selected=item.id;render();showLarge(item);notice(isPhotoUrl(data)?'Фото сохранено в аккаунте.':'Фото сохранено в этом браузере.');
+ const state=$('viewer').contentWindow.demo?.getState();const item={id:Array.from({length:20},(_,i)=>'p'+i).find(id=>!items.some(x=>x.id===id)),name:file.name.slice(0,120),data,createdAt:Date.now(),body:state?.bodyColor||'#f7f7f7',handle:state?.handleColor||'#ffd02a'};await write(item);selected=item.id;render();showLarge(item);notice(isPhotoUrl(data)?(galleryLinkSyncEnabled?'Фото сохранено в аккаунте.':'Снимок загружен. Ссылка сохранена в этом браузере.'):'Фото сохранено в этом браузере.');
  }catch(e){notice(e.message||'Не удалось сохранить фото.');}finally{busy=false;}}
 function showLarge(item){$('photo-scroll').classList.remove('zoomed');$('photo-zoom').setAttribute('aria-pressed','false');$('photo-zoom').textContent='Увеличить ×2';largeItem=item;$('large-title').textContent=item.name||'Фотография';$('large-image').src=item.data;$('large-apply').hidden=!item.id;if(!$('large-photo').open)$('large-photo').showModal();}
 $('close-large').onclick=$('large-close').onclick=()=>$('large-photo').close();
