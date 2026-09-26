@@ -1,0 +1,10 @@
+{
+  "mode": "Mock Firebase authentication/database; unconfigured real storage module; real desktop and mobile browser. No live writes.",
+  "errors": [],
+  "flight": [],
+  "checks": [
+    "desktop and mobile: new personal photo saved only in IndexedDB, survives reload",
+    "desktop and mobile: no Firebase photo write",
+    "desktop and mobile: no upload iframe; missing storage explained"
+  ]
+}

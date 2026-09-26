@@ -1,0 +1,66 @@
+{
+  "mode": "Mock Firebase and Cloudinary; real browser, image decoding and WebGL. No live external upload or personal-gallery read.",
+  "errors": [],
+  "flight": [
+    {
+      "mobile": false,
+      "size": [
+        1600,
+        900
+      ],
+      "frames": 12,
+      "visible": true
+    },
+    {
+      "mobile": false,
+      "size": [
+        700,
+        1500
+      ],
+      "frames": 12,
+      "visible": true
+    },
+    {
+      "mobile": false,
+      "size": [
+        1000,
+        1000
+      ],
+      "frames": 12,
+      "visible": true
+    },
+    {
+      "mobile": true,
+      "size": [
+        1600,
+        900
+      ],
+      "frames": 12,
+      "visible": true
+    },
+    {
+      "mobile": true,
+      "size": [
+        700,
+        1500
+      ],
+      "frames": 12,
+      "visible": true
+    },
+    {
+      "mobile": true,
+      "size": [
+        1000,
+        1000
+      ],
+      "frames": 12,
+      "visible": true
+    }
+  ],
+  "checks": [
+    "desktop: upload → preview → publish → reload image, metadata-only writes",
+    "desktop: failure blocks publication, cancellation restores form",
+    "mobile: upload → preview → publish → reload image, metadata-only writes",
+    "mobile: failure blocks publication, cancellation restores form"
+  ]
+}

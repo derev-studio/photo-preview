@@ -47,3 +47,30 @@
 «Отзывы» переименованы в «Галерею работ». Можно оставить текст или добровольно прикрепить общедоступное фото. Используется официальный загрузчик ImgBB https://imgbb.com/plugin в изолированном iframe без доступа к Firebase-сессии. API-ключи не публикуются. Снимок загружается пользователем в окно ImgBB, затем ссылка добавляется к публикации. В Firebase хранится обычная Markdown-ссылка и подпись в существующем поле comments.text (вместе до 500 символов), поэтому новые правила базы не требуются. Поддерживаются только HTTPS-изображения с i.ibb.co; HTML от посетителей не исполняется. Старые текстовые отзывы сохраняются.
 
 Личные уменьшенные копии в «Мои фото» по-прежнему хранятся в закрытой галерее Firebase. Их нельзя автоматически переносить на ImgBB, сохраняя обещание приватности. Публикация выполняется отдельно и добровольно. Удаление записи из общей галереи удаляет ссылку/подпись; удалять сам файл на ImgBB нужно средствами ImgBB. Сервис внешнего хранения и его доступность зависят от ImgBB; реальные загрузки пользователей в ходе разработки не выполнялись.
+
+### Direct photo storage (prepared, account setup required)
+
+The v5 uploader uses a native file picker and Cloudinary's unsigned image upload API.
+No ImgBB frame or third-party upload widget is loaded. New photo bytes are never
+written to Firebase: until storage is configured, new personal photos remain in
+IndexedDB under the current account/browser. Existing cloud photos remain readable;
+there is no automatic migration or publication. Uploaded files are accessible to
+anyone with their URL; listing a work publicly still requires an explicit publication.
+
+To enable:
+1. Use the owner's Cloudinary Free account and create an **unsigned** upload preset
+   dedicated to this site. Restrict accepted formats to jpg/png/webp/avif, file size
+   to 5 MB, and use random unique filenames. Do not enable overwrite. Set a dedicated
+   folder such as `photo-preview`. Unsigned presets are public upload capabilities;
+   monitor quota and delete unwanted files in the account console.
+2. In the existing Firebase rules, update **only** the `photoPreviewV1` subtree from
+   `database.rules.fragment.json`. Do not replace the full shared database rules with
+   `database.rules.transition.json` (historical setup snapshot).
+3. Set `photoStorage.cloudName` and `photoStorage.uploadPreset` in `config.js`.
+   These identifiers are public. Never put API secrets into this repository.
+4. Run `npm ci && npm run build`, then test a real upload, a publication, reload,
+   and personal-gallery reload using the owner's test account on desktop and phone.
+
+Cloudinary Free has a shared credit allowance for storage, delivery and processing,
+not unlimited storage. Deleting a gallery entry removes its metadata/local copy;
+provider files must be managed separately by the owner. Originals should be kept.

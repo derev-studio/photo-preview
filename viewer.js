@@ -1,3 +1,4 @@
+import {isPhotoUrl} from './photo-storage.js';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
@@ -177,7 +178,7 @@ async function main(){
  const blank=document.createElement('canvas');blank.width=blank.height=2;const bg=blank.getContext('2d');bg.fillStyle='#fff';bg.fillRect(0,0,2,2);blankAtlas=new THREE.CanvasTexture(blank);blankAtlas.colorSpace=THREE.SRGBColorSpace;blankAtlas.flipY=false;
  const gltf=await new GLTFLoader().loadAsync('./heart-mug.glb');mug=gltf.scene;pivot.add(mug);mug.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});surface=mug.getObjectByName('Mug_Print_Surface');surface.material=surface.material.clone();surface.material.map=blankAtlas;mug.traverse(o=>{if(o.isMesh&&o!==surface){o.material=o.material.clone();if(o.name==='Heart_Handle')handleMaterials.push(o.material);else ceramicMaterials.push(o.material);}});buildPhoto();buildCustomizer();applyColors();
  ready=true;$('loading').classList.add('hidden');document.querySelectorAll('button').forEach(b=>b.disabled=false);running=!matchMedia('(prefers-reduced-motion: reduce)').matches;renderAt(running?0:duration);
- window.demo={seek:async t=>{running=false;home();await seekClip(Math.min(freezeTime,Math.max(0,(t-.7)/5.05*freezeTime)));renderAt(t);renderer.render(scene,camera);},play:()=>{running=true;},getState:()=>({time:elapsed,running,printed,photoVisible:photoPlane.visible,photoOpacity:photoPlane.material.opacity,printMapReady:!!surface.material.map,bend:ease((elapsed-3.65)/2.6),rotation:pivot.rotation.y,controls:controls.enabled,videoTime:clip.currentTime,videoPaused:clip.paused,freezeTime,customPhoto:!!customImage,fitMode,bodyColor,handleColor}),exportPrinted:async()=>{running=false;renderAt(duration);const result=await new GLTFExporter().parseAsync(mug,{binary:true,onlyVisible:true});return Array.from(new Uint8Array(result));},atlas:()=>c.toDataURL('image/png')};
+ window.demo={seek:async t=>{running=false;home();if(!customImage)await seekClip(Math.min(freezeTime,Math.max(0,(t-.7)/5.05*freezeTime)));renderAt(t);renderer.render(scene,camera);},play:()=>{running=true;},getState:()=>({time:elapsed,running,printed,photoVisible:photoPlane.visible,photoOpacity:photoPlane.material.opacity,printMapReady:!!surface.material.map,bend:ease((elapsed-3.65)/2.6),rotation:pivot.rotation.y,controls:controls.enabled,videoTime:clip.currentTime,videoPaused:clip.paused,freezeTime,customPhoto:!!customImage,fitMode,bodyColor,handleColor}),exportPrinted:async()=>{running=false;renderAt(duration);const result=await new GLTFExporter().parseAsync(mug,{binary:true,onlyVisible:true});return Array.from(new Uint8Array(result));},atlas:()=>c.toDataURL('image/png')};
  window.clip=clip;window.camera=camera;window.controls=controls;window.renderer=renderer;window.mug=mug;window.photoPlane=photoPlane;window.__ready=true;
 }
 main().catch(e=>{$('loading').textContent='Не удалось открыть 3D. Попробуйте открыть файл в Chrome.';window.__error=String(e);console.error(e);});
@@ -187,8 +188,8 @@ addEventListener('message',async e=>{
  if(e.source!==parent||e.origin!==location.origin||!ready||e.data?.type!=='preview-photo')return;
  try{
   const {data,name,body,handle}=e.data;
-  if(typeof data!=='string'||data.length>260000||!data.startsWith('data:image/jpeg;base64,'))return;
-  const im=new Image();im.src=data;await im.decode();customImage=im;fitMode='contain';
+  if(typeof data!=='string'||data.length>4000000||(!data.startsWith('data:image/jpeg;base64,')&&!isPhotoUrl(data)))return;
+  const im=new Image();if(isPhotoUrl(data))im.crossOrigin='anonymous';im.src=data;await im.decode();customImage=im;fitMode='contain';
   if(/^#[0-9a-f]{6}$/i.test(body||''))bodyColor=body;
   if(/^#[0-9a-f]{6}$/i.test(handle||''))handleColor=handle;
   applyColors();home();running=true;renderAt(0);$('photo-name').textContent=name||'Моя фотография';

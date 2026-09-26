@@ -4,3 +4,7 @@ export const firebaseConfig={apiKey:"AIzaSyB2X3o7KwYFkMfsskKoWpQYBrws8L-Mn9w",au
 export const cloudEnabled=true;
 // Add the owner’s actual shop URL when supplied.
 export const shopUrl="";
+
+// Public Cloudinary unsigned-upload identifiers, never an API secret.
+// Enable only after applying the URL validation in database.rules.fragment.json.
+export const photoStorage={cloudName:"",uploadPreset:""};

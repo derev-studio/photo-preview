@@ -13,7 +13,7 @@
             ".validate": "newData.isString() && newData.val().length <= 120"
           },
           "data": {
-            ".validate": "newData.isString() && newData.val().length <= 250000 && newData.val().beginsWith('data:image/jpeg;base64,')"
+            ".validate": "newData.isString() && ((newData.val().length <= 250000 && newData.val().beginsWith('data:image/jpeg;base64,') && data.exists() && newData.val() === data.val()) || (newData.val().length <= 300 && newData.val().matches(/^https:\\/\\/res\\.cloudinary\\.com\\/[a-zA-Z0-9_-]+\\/image\\/upload\\/[a-zA-Z0-9_\\/.%-]+$/)))"
           },
           "createdAt": {
             ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 60000"
