@@ -3,7 +3,7 @@
   'use strict';
   const embedded = window.parent !== window;
   if (!embedded) {
-    let enabled = true, context, master, echo, last = -Infinity;
+    let enabled = true, context, master, echo, paper, paperBuffer, last = -Infinity;
     try { enabled = localStorage.getItem('porcelain-sound') !== 'off'; } catch {}
     const toggle = document.getElementById('sound-toggle');
     const paint = () => { if (toggle) { toggle.textContent = enabled ? 'Звук: вкл.' : 'Звук: выкл.'; toggle.setAttribute('aria-pressed', String(enabled)); } };
@@ -45,8 +45,39 @@
         });
       } catch { /* Audio is optional; every control keeps working. */ }
     };
+    // A soft, filtered paper rub follows the actual photo-bending progress.
+    window.porcelainPaper = (active, progress = 0) => {
+      if (!active || !enabled || document.hidden || !context || context.state !== 'running') {
+        if (paper) { paper.source.stop(); paper = null; }
+        return;
+      }
+      try {
+        if (!paper) {
+          if (!paperBuffer) {
+            paperBuffer = context.createBuffer(1, context.sampleRate * 3, context.sampleRate);
+            const samples = paperBuffer.getChannelData(0);
+            for (let i = 0; i < samples.length; i++) {
+              const t = i / context.sampleRate;
+              const folds = .5 + .22 * Math.sin(t * 31) + .12 * Math.sin(t * 83);
+              samples[i] = (Math.random() * 2 - 1) * folds;
+            }
+          }
+          const source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain();
+          source.buffer = paperBuffer; source.loop = true;
+          filter.type = 'bandpass'; filter.frequency.value = 1900; filter.Q.value = .55;
+          gain.gain.value = 0;
+          source.connect(filter); filter.connect(gain); gain.connect(master);
+          source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
+          source.start(); paper = {source, gain, filter};
+        }
+        const p = Math.max(0, Math.min(1, progress));
+        paper.gain.gain.setTargetAtTime(.12 * Math.sin(Math.PI * p), context.currentTime, .04);
+        paper.filter.frequency.setTargetAtTime(2200 - 850 * p, context.currentTime, .05);
+      } catch { if (paper) { paper.source.stop(); paper = null; } }
+    };
     toggle?.addEventListener('click', () => {
       enabled = !enabled;
+      if (!enabled) window.porcelainPaper(false);
       if (master) master.gain.setValueAtTime(enabled ? .45 : 0, context.currentTime);
       try { localStorage.setItem('porcelain-sound', enabled ? 'on' : 'off'); } catch {}
       paint(); if (enabled) window.porcelainSound();
@@ -59,6 +90,16 @@
     if (event.isTrusted && button && !button.disabled && button.id !== 'sound-toggle') ring(false, button.id || button.getAttribute('aria-label') || button.textContent.trim());
   });
   if (embedded) {
+    const paperSound = (active, progress) => { try { window.parent.porcelainPaper?.(active, progress); } catch {} };
+    function followPhoto() {
+      const state = window.demo?.getState();
+      const active = !document.hidden && state?.running && state.time >= 3.65 && state.time < 6.25;
+      paperSound(Boolean(active), active ? (state.time - 3.65) / 2.6 : 0);
+      requestAnimationFrame(followPhoto);
+    }
+    requestAnimationFrame(followPhoto);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) paperSound(false); });
+    window.addEventListener('pagehide', () => paperSound(false));
     let drag;
     document.addEventListener('pointerdown', event => {
       if (event.isTrusted && event.target.tagName === 'CANVAS' && window.controls?.enabled) { drag = {id:event.pointerId,x:event.clientX,y:event.clientY}; ring(false, 'mug-touch'); }
