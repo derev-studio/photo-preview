@@ -76,3 +76,5 @@ not unlimited storage. Deleting a gallery entry removes its metadata/local copy;
 provider files must be managed separately by the owner. Originals should be kept.
 
 Current connection: owner cloud `i1lysqxk`, existing unsigned preset `kaktus`. Real upload and image delivery (HTTP 200 with CORS) verified. Preset settings are unchanged. Public image attachment is enabled. Personal photos upload to Cloudinary, but their link index stays in this browser while `galleryLinkSyncEnabled=false`. After applying only the isolated gallery URL rules, enable that flag to restore account synchronization.
+
+2026-09-26: owner confirmed the isolated Firebase URL rules were published. `galleryLinkSyncEnabled=true`: new signed-in gallery additions sync metadata and Cloudinary links to Firebase. Earlier browser-only items are not migrated automatically; use Save mug colors on an existing selected Cloudinary-backed item to sync it. Anonymous guest images remain browser-local. No live authenticated cross-device test has been performed by the agent.

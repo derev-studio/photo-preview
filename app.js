@@ -1,5 +1,5 @@
-import {firebaseConfig,cloudEnabled,shopUrl,galleryLinkSyncEnabled} from './config.js?v=6';
-import {storageReady,uploadPhoto,isPhotoUrl} from './photo-storage.js?v=6';
+import {firebaseConfig,cloudEnabled,shopUrl,galleryLinkSyncEnabled} from './config.js?v=7';
+import {storageReady,uploadPhoto,isPhotoUrl} from './photo-storage.js?v=7';
 const $=id=>document.getElementById(id),ROOT='photoPreviewV1';
 let user=null,auth,db,api,items=[],selected=null,scope='guest',revision=0,unsubscribe,commentUnsubscribe,busy=false;
 let noticeTimer,largeItem=null,publicImageUrl='',publicUploadPending=false,publicImageVersion=0,uploadController=null,posting=false;

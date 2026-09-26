@@ -7,5 +7,5 @@ export const shopUrl="";
 
 // Public upload identifiers for the owner's existing Cloudinary account.
 export const photoStorage={cloudName:"i1lysqxk",uploadPreset:"kaktus"};
-// Enable after the owner applies gallery URL validation in photoPreviewV1 only.
-export const galleryLinkSyncEnabled=false;
+// Owner confirmed publishing gallery URL validation on 2026-09-26.
+export const galleryLinkSyncEnabled=true;
