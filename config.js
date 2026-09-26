@@ -8,3 +8,6 @@ export const shopUrl="";
 // Public Cloudinary unsigned-upload identifiers, never an API secret.
 // Enable only after applying the URL validation in database.rules.fragment.json.
 export const photoStorage={cloudName:"",uploadPreset:""};
+
+// Prepared cloud. Activate only after owner claims it and gallery URL rules are applied.
+export const pendingPhotoStorage={"cloudName":"neak9spw","uploadPreset":"photo_preview_5cc146127d19","claimDeadline":"2026-09-27T14:01:14Z"};

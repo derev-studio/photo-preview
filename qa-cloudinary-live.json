@@ -1,0 +1,20 @@
+{
+  "provider": "Cloudinary",
+  "cloudName": "neak9spw",
+  "unsignedPresetCreated": true,
+  "realUpload": {
+    "success": true,
+    "width": 1536,
+    "height": 1024,
+    "bytes": 2426602,
+    "source": "Existing demo image in this public repository"
+  },
+  "delivery": {
+    "status": 401,
+    "cors": "*",
+    "verified": false,
+    "note": "Unclaimed cloud restricts media delivery by IP. Global image delivery requires owner claim; recheck after claim."
+  },
+  "activation": "pending owner claim and photoPreviewV1 gallery URL rules; production uploader remains disabled",
+  "firebaseWrites": false
+}
