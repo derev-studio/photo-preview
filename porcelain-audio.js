@@ -3,7 +3,7 @@
   'use strict';
   const embedded = window.parent !== window;
   if (!embedded) {
-    let enabled = true, context, master, echo, paper, paperBuffer, spin, last = -Infinity;
+    let enabled = true, context, master, echo, paper, paperBuffer, spin, spinBuffer, last = -Infinity;
     try { enabled = localStorage.getItem('porcelain-sound') !== 'off'; } catch {}
     const toggle = document.getElementById('sound-toggle');
     const paint = () => { if (toggle) { toggle.textContent = enabled ? 'Звук: вкл.' : 'Звук: выкл.'; toggle.setAttribute('aria-pressed', String(enabled)); } };
@@ -65,42 +65,52 @@
           }
           const source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain();
           source.buffer = paperBuffer; source.loop = true;
-          filter.type = 'lowpass'; filter.frequency.value = 1100; filter.Q.value = .5;
+          filter.type = 'lowpass'; filter.frequency.value = 750; filter.Q.value = .5;
           gain.gain.value = 0;
           source.connect(filter); filter.connect(gain); gain.connect(master);
           source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
           source.start(); paper = {source, gain, filter};
         }
         const p = Math.max(0, Math.min(1, progress));
-        paper.gain.gain.setTargetAtTime(.035 * Math.sin(Math.PI * Math.min(1, p / .9)) * (.7 + .3 * Math.sin(p * Math.PI * 8) ** 2), context.currentTime, .04);
-        paper.filter.frequency.setTargetAtTime(600 + 350 * Math.sin(Math.PI * p), context.currentTime, .05);
+        const wings = [[.15,.08,.65],[.36,.11,1],[.61,.09,.7],[.77,.065,.45]].reduce((sum,[center,width,level]) => sum + level * Math.exp(-(((p-center)/width)**2)), 0);
+        paper.gain.gain.setTargetAtTime(.025 * wings * Math.sin(Math.PI * Math.min(1, p / .9)), context.currentTime, .06);
+        paper.filter.frequency.setTargetAtTime(450 + 250 * Math.sin(Math.PI * p), context.currentTime, .05);
       } catch { if (paper) { paper.source.stop(); paper = null; } }
     };
-    // A continuous, very quiet ceramic shimmer accompanies the automatic turn.
+    // A low, non-tonal rolling texture, like a softly lubricated bearing.
     window.porcelainSpin = (active, progress = 0) => {
       if (!active || !enabled || document.hidden || !context || context.state !== 'running') {
         if (spin) {
-          for (const voice of spin) {
-            voice.gain.gain.setTargetAtTime(0, context.currentTime, .025);
-            voice.oscillator.stop(context.currentTime + .12);
-          }
+          spin.gain.gain.setTargetAtTime(0, context.currentTime, .025);
+          spin.source.stop(context.currentTime + .12);
           spin = null;
         }
         return;
       }
       try {
-        if (!spin) spin = [523.25, 784.88].map(frequency => {
-          const oscillator = context.createOscillator(), gain = context.createGain();
-          oscillator.type = 'sine'; oscillator.frequency.value = frequency; gain.gain.value = 0;
-          oscillator.connect(gain); gain.connect(master);
-          oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
-          oscillator.start(); return {oscillator, gain, frequency};
-        });
+        if (!spin) {
+          if (!spinBuffer) {
+            spinBuffer = context.createBuffer(1, context.sampleRate * 8, context.sampleRate);
+            const samples = spinBuffer.getChannelData(0);
+            let smooth = 0;
+            for (let i = 0; i < samples.length; i++) {
+              smooth = .97 * smooth + .03 * (Math.random() * 2 - 1);
+              samples[i] = smooth;
+            }
+          }
+          const source = context.createBufferSource(), low = context.createBiquadFilter(), high = context.createBiquadFilter(), gain = context.createGain();
+          source.buffer = spinBuffer; source.loop = true;
+          low.type = 'lowpass'; low.frequency.value = 480; low.Q.value = .5;
+          high.type = 'highpass'; high.frequency.value = 110; high.Q.value = .5;
+          gain.gain.value = 0;
+          source.connect(high); high.connect(low); low.connect(gain); gain.connect(master);
+          source.onended = () => { source.disconnect(); high.disconnect(); low.disconnect(); gain.disconnect(); };
+          source.start(); spin = {source, gain, low};
+        }
         const p = Math.max(0, Math.min(1, progress));
-        spin.forEach((voice, i) => {
-          voice.gain.gain.setTargetAtTime((i ? .003 : .007) * Math.sin(Math.PI * p), context.currentTime, .08);
-          voice.oscillator.frequency.setTargetAtTime(voice.frequency * (1 + .012 * Math.sin(p * Math.PI * 2)), context.currentTime, .08);
-        });
+        const speed = Math.sin(Math.PI * p);
+        spin.gain.gain.setTargetAtTime(.09 * speed, context.currentTime, .12);
+        spin.low.frequency.setTargetAtTime(320 + 160 * speed, context.currentTime, .12);
       } catch { /* No sound must block the viewer. */ }
     };
     window.porcelainContact = () => {
