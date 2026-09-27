@@ -51,7 +51,7 @@ function showLarge(item){$('photo-scroll').classList.remove('zoomed');$('photo-z
 $('close-large').onclick=$('large-close').onclick=()=>$('large-photo').close();
 $('large-apply').onclick=()=>{if(largeItem&&apply(largeItem))$('large-photo').close();};
 function apply(item){if(!$('viewer').contentWindow.__ready){notice('Кружка ещё загружается. Попробуйте через несколько секунд.');return;}selected=item.id||null;render();$('viewer').contentWindow.postMessage({type:'preview-photo',data:item.data,name:item.name,body:item.body,handle:item.handle},location.origin);$('gallery').close();$('comments').close();return true;}
-$('open-gallery').onclick=()=>$('gallery').showModal();$('open-comments').onclick=()=>$('comments').showModal();document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
+$('open-gallery').onclick=()=>{window.showGallerySection?.('photos');$('gallery').showModal();};$('open-comments').onclick=()=>$('comments').showModal();document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $('add-photo').onclick=()=>$('gallery-file').click();$('gallery-file').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)add(f);};
 $('save-design').onclick=async()=>{const item=items.find(x=>x.id===selected),state=$('viewer').contentWindow.demo?.getState();if(!item||!state){notice('Сначала примерьте снимок из галереи.');return;}try{await write({...item,body:state.bodyColor,handle:state.handleColor});notice('Цвета сохранены вместе с фото.');}catch{notice('Не удалось сохранить цвета.');}};
 addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==$('viewer').contentWindow)return;if(e.data?.type==='photo-chosen'&&e.data.file instanceof File)add(e.data.file,false);if(e.data?.type==='preview-error')notice('Не удалось примерить снимок.');});
@@ -79,8 +79,13 @@ $('attach-public').onclick=()=>{
  if(!storageReady){$('upload-status').textContent='Загрузка в фотохранилище ещё не подключена. Примерка и сохранение фото в браузере работают.';return;}
  $('public-file').click();
 };
-$('public-file').onchange=async e=>{
- const file=e.target.files[0];e.target.value='';if(!file)return;
+$('public-file').onchange=e=>{const file=e.target.files[0];e.target.value='';if(file)attachPublicFile(file);};
+window.prepareMugPublication=async(file,title)=>{
+ if(!user){notice('Войдите через Google, чтобы опубликовать макет.');return;}
+ if(!storageReady){notice('Фотохранилище пока недоступно.');return;}
+ $('mockup-view').close();$('gallery').close();$('comments').showModal();$('comment-text').value=title.slice(0,180);await attachPublicFile(file);
+};
+async function attachPublicFile(file){
  clearPublic();const version=publicImageVersion,token=revision;uploadController=new AbortController();
  publicUploadPending=true;$('cancel-public').hidden=false;$('attach-public').hidden=true;accountUI();
  try{

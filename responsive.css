@@ -47,3 +47,7 @@ html,body{width:100%;height:100%;min-height:0}
 @media(min-width:601px) and (max-height:480px){.viewer-shell.editing{grid-template-columns:minmax(0,1fr) 280px}.viewer-shell .buttons button{padding-left:9px;padding-right:9px}}
 
 .viewer-shell.editing #controls-panel[open]{height:100%;max-height:100%;overflow:auto}
+#gallery{width:min(1200px,96vw)}.gallery-sections{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 20px}.gallery-sections [aria-pressed=true]{background:#48634b;color:white;text-shadow:none}
+#mockups{width:auto}#mockup-list{grid-template-columns:1fr}#mockup-list img{height:min(65dvh,650px);cursor:zoom-in;background:#f1eee7;border-radius:14px}#mockup-list h3{font-size:22px}#mockup-list .actions{gap:12px}
+#mockup-view{width:min(1400px,98vw);max-height:98dvh;padding:18px}#mockup-scroll{height:68dvh;overflow:auto;background:#f1eee7;border-radius:16px}#mockup-image{display:block;width:100%;height:100%;object-fit:contain}#mockup-scroll.zoomed img{width:200%;max-width:none;height:auto}#mockup-view-actions .actions{justify-content:center;gap:12px}#mockup-view-actions a{display:inline-block;background:#48634b;color:white;border-radius:24px;padding:12px 18px;text-decoration:none;min-height:46px}#mockup-view-status{font-size:14px;line-height:1.4}
+@media(max-width:600px){#mockup-list article{padding:10px}#mockup-list img{height:52dvh}#mockup-scroll{height:58dvh}#mockup-view{padding:12px}#mockup-list .actions>*{flex:1 1 130px;text-align:center}}
