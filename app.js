@@ -1,4 +1,4 @@
-import {setupPhotoAI} from './ai-photo.js?v=1';
+import {setupPhotoAI} from './ai-photo.js?v=2';
 import {firebaseConfig,cloudEnabled,shopUrl,galleryLinkSyncEnabled} from './config.js?v=8';
 import {storageReady,uploadPhoto,isPhotoUrl} from './photo-storage.js?v=7';
 const $=id=>document.getElementById(id),ROOT='photoPreviewV1';
@@ -57,7 +57,7 @@ const resetPhotoAI=setupPhotoAI({getItem:()=>largeItem,saveCopy:async(blob,origi
   const data=await uploadPhoto(blob);
   if(token!==revision)throw Error('Аккаунт изменился. Сохраните копию ещё раз.');
   const id=Array.from({length:20},(_,i)=>'p'+i).find(id=>!items.some(x=>x.id===id));
-  const item={id,name:((original.name||'Фото').replace(/\.[^.]+$/,'')+(kind==='remove'?' — без фона':' — расширенное')).slice(0,120),data,createdAt:Date.now(),body:original.body||'#f7f7f7',handle:original.handle||'#ffd02a'};
+  const item={id,name:((original.name||'Фото').replace(/\.[^.]+$/,'')+(kind==='remove'?' — без фона':kind==='background'?' — новый фон':' — расширенное')).slice(0,120),data,createdAt:Date.now(),body:original.body||'#f7f7f7',handle:original.handle||'#ffd02a'};
   await write(item);showLarge(item);notice('Обработанная копия сохранена. Оригинал остался в галерее.');
  }finally{busy=false;}
 }});

@@ -17,7 +17,7 @@ html,body{width:100%;height:100%;min-height:0}
 .viewer-shell .buttons button{flex:0 1 auto;white-space:normal;font-size:16px;min-height:46px;padding:11px 18px}
 .viewer-shell .track{position:fixed;bottom:0;height:2px}.viewer-shell #loading{top:40%;padding:20px}
 #controls-panel{width:min(400px,calc(100% - 24px));max-height:calc(100dvh - 24px);margin:12px 12px 12px auto;padding:16px;border:1px solid #d9d5c7;border-radius:24px;background:#fffdf8;color:#354536;box-shadow:0 16px 60px #23332233;overflow:auto}
-#controls-panel::backdrop{background:#283c3038;backdrop-filter:blur(3px)}
+#controls-panel::backdrop{background:none;backdrop-filter:none;-webkit-backdrop-filter:none}
 #controls-panel .drawer-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}#controls-panel h2{font-size:23px;margin:0}
 #controls-panel #customizer{position:static;inset:auto;display:block;width:100%;max-height:none;margin:0;padding:4px;overflow:visible;border:0;background:none;box-shadow:none;visibility:visible;opacity:1}
 #controls-panel .panel-title{display:none}#controls-panel .swatches{gap:12px;flex-wrap:wrap}#controls-panel .swatch{flex:0 0 44px}#controls-panel button{white-space:normal}
