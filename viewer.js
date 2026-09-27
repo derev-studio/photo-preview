@@ -158,7 +158,7 @@ function buildCustomizer(){
  document.querySelectorAll('[data-fit]').forEach(b=>b.onclick=()=>{fitMode=b.dataset.fit;document.querySelectorAll('[data-fit]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));repaint();});
  $('restore-demo').onclick=()=>{customImage=null;fitMode='contain';showFinished();repaint();$('photo-name').textContent='Семейный пример';$('photo-message').textContent='Своё фото остаётся обычной фотографией. Живое объятие — в готовом примере.';$('fit-options').hidden=true;$('restore-demo').hidden=true;};
 }
-function resize(){const rect=$('stage').getBoundingClientRect(),w=Math.max(1,rect.width),h=Math.max(1,rect.height);renderer.setSize(w,h);camera.aspect=w/h;camera.fov=THREE.MathUtils.radToDeg(2*Math.atan(Math.max(.155,.16/camera.aspect)/(2*.42)));camera.updateProjectionMatrix();}
+function resize(){const rect=$('stage').getBoundingClientRect(),w=Math.max(1,rect.width),h=Math.max(1,rect.height);renderer.setSize(w,h);camera.aspect=w/h;camera.fov=THREE.MathUtils.radToDeg(2*Math.atan(Math.max(.155,.185/camera.aspect)/(2*.42)));camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe($('stage'));
 $('open-controls').onclick=()=>{if(!ready)return;showFinished();$('controls-panel').showModal();};
 $('close-controls').onclick=()=>$('controls-panel').close();
