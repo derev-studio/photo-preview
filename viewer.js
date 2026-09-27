@@ -11,7 +11,7 @@ const scene=new THREE.Scene();scene.background=new THREE.Color('#f1eee7');
 const pm=new THREE.PMREMGenerator(renderer),room=new RoomEnvironment();scene.environment=pm.fromScene(room,.045).texture;scene.environmentIntensity=.7;room.dispose();pm.dispose();
 const camera=new THREE.PerspectiveCamera(32,innerWidth/innerHeight,.002,3);
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enablePan=false;controls.minDistance=.19;controls.maxDistance=.7;
-const target=new THREE.Vector3(.015,.054,0);
+const target=new THREE.Vector3(.041,.054,0);
 function home(){const damp=controls.enableDamping;controls.enableDamping=false;controls.update();camera.up.set(0,1,0);camera.position.set(.083,.139,.405);controls.target.copy(target);controls.update();controls.enableDamping=damp;}
 home();
 const key=new THREE.DirectionalLight('#fff6e8',2.3);key.position.set(-.15,.29,.22);key.castShadow=true;key.shadow.mapSize.set(2048,2048);Object.assign(key.shadow.camera,{left:-.24,right:.24,top:.23,bottom:-.2,near:.01,far:.8});key.shadow.bias=-.0001;key.shadow.normalBias=.00025;key.shadow.radius=5;scene.add(key);
@@ -68,7 +68,7 @@ function setPrint(enabled){if(printed===enabled)return;printed=enabled;surface.m
 function updateUI(t){
  const phase=t<1.2?0:t<6.5?1:2;const visible=t>=6.5;$('customizer').classList.toggle('visible',visible);$('customizer').inert=!visible;
  document.querySelectorAll('.step').forEach((e,i)=>e.classList.toggle('active',i===phase));
- $('caption').textContent=t<1.2?'Всё начинается с чистой кружки':t<3.8?'Любимые лица оживают':t<5.75?'Тёплое объятие — настоящий момент':t<6.5?'Объятие замирает на керамике':t<7.8?'Ваш снимок становится частью кружки':t<duration?'Рассмотрите её со всех сторон':'Теперь кружку можно вращать мышью';
+ $('caption').textContent=t<1.2?'Всё начинается с чистой кружки':t<3.8?'Любимые лица оживают':t<5.75?'Тёплое объятие — настоящий момент':t<6.5?'Объятие замирает на керамике':t<7.8?'Ваш снимок становится частью кружки':t<duration?'Рассмотрите её со всех сторон':'Вращайте кружку пальцем или мышью';
  if(customImage)$('caption').textContent=t<1.2?'Ваша кружка готовится':t<6.5?'Ваша фотография прилетает на кружку':t<duration?'Ваше фото на керамике':'Меняйте цвета и вращайте кружку мышью';
  $('progress').style.transform=`scaleX(${Math.min(t/duration,1)})`;$('pause').textContent=running?'Пауза':'Продолжить';$('pause').disabled=t>=duration;
 }
@@ -148,17 +148,20 @@ function buildCustomizer(){
    if(!/^image\/(jpeg|png|webp|avif|heic|heif)$/i.test(file.type)&&!/[.](jpe?g|png|webp|avif|heic|heif)$/i.test(file.name))throw Error('Выберите фотографию JPG, PNG или WebP.');
    $('photo-message').textContent='Открываю фотографию…';url=URL.createObjectURL(file);const im=new Image();im.src=url;
    try{await im.decode();}catch{throw Error('Не удалось прочитать фото. Для HEIC сохраните копию в JPG и попробуйте снова.');}
-   customImage=im;fitMode='contain';clip.pause();repaint();showFinished();
+   customImage=im;fitMode='contain';clip.pause();repaint();showFinished();$('controls-panel').close();
    $('photo-message').textContent='Фото примерено. «Повторить» покажет его волшебный подлёт.';
    parent.postMessage({type:'photo-chosen',file},location.origin);$('photo-name').textContent=file.name;$('fit-options').hidden=false;$('restore-demo').hidden=false;
    document.querySelectorAll('[data-fit]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.fit===fitMode)));
-  }catch(err){showFinished();$('photo-message').textContent=err.message;$('customizer').classList.add('visible');$('customizer').inert=false;}
+  }catch(err){showFinished();$('photo-message').textContent=err.message;$('customizer').classList.add('visible');$('customizer').inert=false;$('controls-panel').showModal();}
   finally{if(url)URL.revokeObjectURL(url);e.target.value='';}
  };
  document.querySelectorAll('[data-fit]').forEach(b=>b.onclick=()=>{fitMode=b.dataset.fit;document.querySelectorAll('[data-fit]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));repaint();});
  $('restore-demo').onclick=()=>{customImage=null;fitMode='contain';showFinished();repaint();$('photo-name').textContent='Семейный пример';$('photo-message').textContent='Своё фото остаётся обычной фотографией. Живое объятие — в готовом примере.';$('fit-options').hidden=true;$('restore-demo').hidden=true;};
 }
-function resize(){const viewHeight=innerWidth<700?550:innerHeight;renderer.setSize(innerWidth,viewHeight);camera.aspect=innerWidth/viewHeight;camera.fov=innerWidth<700?46:32;camera.updateProjectionMatrix();}
+function resize(){const rect=$('stage').getBoundingClientRect(),w=Math.max(1,rect.width),h=Math.max(1,rect.height);renderer.setSize(w,h);camera.aspect=w/h;camera.fov=THREE.MathUtils.radToDeg(2*Math.atan(Math.max(.155,.16/camera.aspect)/(2*.42)));camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe($('stage'));
+$('open-controls').onclick=()=>{if(!ready)return;showFinished();$('controls-panel').showModal();};
+$('close-controls').onclick=()=>$('controls-panel').close();
 addEventListener('resize',resize);resize();
 $('replay').onclick=()=>{if(!ready)return;home();elapsed=0;running=true;renderAt(0);};
 $('pause').onclick=()=>{if(!ready)return;running=!running;syncLiving(elapsed);updateUI(elapsed);};
@@ -192,7 +195,7 @@ addEventListener('message',async e=>{
   const im=new Image();if(isPhotoUrl(data))im.crossOrigin='anonymous';im.src=data;await im.decode();customImage=im;fitMode='contain';
   if(/^#[0-9a-f]{6}$/i.test(body||''))bodyColor=body;
   if(/^#[0-9a-f]{6}$/i.test(handle||''))handleColor=handle;
-  applyColors();home();running=true;renderAt(0);$('photo-name').textContent=name||'Моя фотография';
+  $('controls-panel').close();applyColors();home();running=true;renderAt(0);$('photo-name').textContent=name||'Моя фотография';
   $('fit-options').hidden=false;$('restore-demo').hidden=false;
   $('photo-message').textContent='Снимок из вашей галереи. Нажмите «Повторить» для волшебного подлёта.';
   parent.postMessage({type:'preview-applied'},location.origin);
