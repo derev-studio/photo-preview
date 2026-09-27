@@ -1,3 +1,4 @@
+import {setupPhotoAI} from './ai-photo.js?v=1';
 import {firebaseConfig,cloudEnabled,shopUrl,galleryLinkSyncEnabled} from './config.js?v=8';
 import {storageReady,uploadPhoto,isPhotoUrl} from './photo-storage.js?v=7';
 const $=id=>document.getElementById(id),ROOT='photoPreviewV1';
@@ -47,7 +48,19 @@ async function add(file,preview=true){if(busy)return;busy=true;const token=revis
  if(items.length>=20)throw Error('В галерее уже 20 фото. Удалите ненужное, чтобы добавить новое.');notice('Готовлю снимок…');let data=await compress(file);if(cloudEnabled&&user&&storageReady){notice('Загружаю фотографию…');data=await uploadPhoto(data);}if(token!==revision)throw Error('Аккаунт изменился. Добавьте фото ещё раз.');
  const state=$('viewer').contentWindow.demo?.getState();const item={id:Array.from({length:20},(_,i)=>'p'+i).find(id=>!items.some(x=>x.id===id)),name:file.name.slice(0,120),data,createdAt:Date.now(),body:state?.bodyColor||'#f7f7f7',handle:state?.handleColor||'#ffd02a'};await write(item);selected=item.id;render();showLarge(item);notice(isPhotoUrl(data)?(galleryLinkSyncEnabled?'Фото сохранено в аккаунте.':'Снимок загружен. Ссылка сохранена в этом браузере.'):'Фото сохранено в этом браузере.');
  }catch(e){notice(e.message||'Не удалось сохранить фото.');}finally{busy=false;}}
-function showLarge(item){$('photo-scroll').classList.remove('zoomed');$('photo-zoom').setAttribute('aria-pressed','false');$('photo-zoom').textContent='Увеличить ×2';largeItem=item;$('large-title').textContent=item.name||'Фотография';$('large-image').src=item.data;$('large-apply').hidden=false;if(!$('large-photo').open)$('large-photo').showModal();}
+function showLarge(item){resetPhotoAI();$('photo-scroll').classList.remove('zoomed');$('photo-zoom').setAttribute('aria-pressed','false');$('photo-zoom').textContent='Увеличить ×2';largeItem=item;$('large-title').textContent=item.name||'Фотография';$('large-image').src=item.data;$('large-apply').hidden=false;if(!$('large-photo').open)$('large-photo').showModal();}
+const resetPhotoAI=setupPhotoAI({getItem:()=>largeItem,saveCopy:async(blob,original,kind)=>{
+ if(busy)throw Error('Дождитесь сохранения текущего фото.');
+ if(items.length>=20)throw Error('В галерее уже 20 фото. Освободите место для копии.');
+ busy=true;const token=revision;
+ try{
+  const data=await uploadPhoto(blob);
+  if(token!==revision)throw Error('Аккаунт изменился. Сохраните копию ещё раз.');
+  const id=Array.from({length:20},(_,i)=>'p'+i).find(id=>!items.some(x=>x.id===id));
+  const item={id,name:((original.name||'Фото').replace(/\.[^.]+$/,'')+(kind==='remove'?' — без фона':' — расширенное')).slice(0,120),data,createdAt:Date.now(),body:original.body||'#f7f7f7',handle:original.handle||'#ffd02a'};
+  await write(item);showLarge(item);notice('Обработанная копия сохранена. Оригинал остался в галерее.');
+ }finally{busy=false;}
+}});
 $('close-large').onclick=$('large-close').onclick=()=>$('large-photo').close();
 $('large-apply').onclick=()=>{if(largeItem&&apply(largeItem))$('large-photo').close();};
 function apply(item){if(!$('viewer').contentWindow.__ready){notice('Кружка ещё загружается. Попробуйте через несколько секунд.');return;}selected=item.id||null;render();$('viewer').contentWindow.postMessage({type:'preview-photo',data:item.data,name:item.name,body:item.body,handle:item.handle},location.origin);$('gallery').close();$('comments').close();return true;}
