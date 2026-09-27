@@ -9,14 +9,13 @@
     const paint = () => { if (toggle) { toggle.textContent = enabled ? 'Звук: вкл.' : 'Звук: выкл.'; toggle.setAttribute('aria-pressed', String(enabled)); } };
     const notes = [659.25, 783.99, 880, 987.77, 1174.66, 1318.51, 1567.98, 1760];
     const pitches = {'open-gallery':0,'open-comments':1,'login':2,'logout':2,'shop':3,'replay':4,'pause':0,'inspect':5,'quick-photo':6,'upload-photo':6,'large-apply':7,'sound-toggle':5,'mug-touch':2};
-    window.porcelainSound = (motion = false, key = 'sound-toggle') => {
-      if (!enabled || document.hidden) return;
-      const now = performance.now();
-      if (now - last < (motion ? 220 : 80)) return;
-      last = now;
+    // Called synchronously from real gestures, including touches inside the viewer.
+    window.unlockPorcelainAudio = () => {
+      if (!enabled || document.hidden) return Promise.resolve();
       try {
         const Audio = window.AudioContext || window.webkitAudioContext;
         if (!Audio) return;
+        try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
         if (!context) {
           context = new Audio(); master = context.createGain(); master.gain.value = .45; master.connect(context.destination);
           // Two quiet, finite reflections: no feedback loop or accumulating reverb.
@@ -27,7 +26,23 @@
             echo.connect(delay); delay.connect(wet); wet.connect(master);
           });
         }
-        if (context.state === 'suspended') context.resume().catch(() => {});
+        if (context.state !== 'running') {
+          const source = context.createBufferSource();
+          source.buffer = context.createBuffer(1, 1, context.sampleRate);
+          source.connect(context.destination);source.onended=()=>source.disconnect();source.start();
+          return context.resume();
+        }
+        return Promise.resolve();
+      } catch { return Promise.resolve(); }
+    };
+    window.porcelainSound = async (motion = false, key = 'sound-toggle') => {
+      if (!enabled || document.hidden) return;
+      const now = performance.now();
+      if (now - last < (motion ? 220 : 80)) return;
+      last = now;
+      try {
+        await window.unlockPorcelainAudio();
+        if (!context || context.state !== 'running' || !enabled || document.hidden) return;
         const hash = [...key].reduce((n, char) => (n * 31 + char.codePointAt(0)) >>> 0, 0);
         const fundamental = notes[pitches[key] ?? hash % notes.length] * (motion ? .75 : 1);
         const start = context.currentTime;
@@ -151,6 +166,13 @@
     });
     paint();
   }
+  const unlock = event => {
+    if (!event.isTrusted) return;
+    try { (embedded ? window.parent : window).unlockPorcelainAudio?.()?.catch(()=>{}); } catch {}
+  };
+  document.addEventListener('touchend', unlock, {capture:true,passive:true});
+  document.addEventListener('pointerup', unlock, {capture:true,passive:true});
+  document.addEventListener('keydown', unlock, {capture:true});
   const ring = (motion, key) => { try { (embedded ? window.parent : window).porcelainSound?.(motion, key); } catch {} };
   document.addEventListener('click', event => {
     const button = event.target.closest('button,a#shop');
