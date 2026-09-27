@@ -152,7 +152,7 @@ function buildCustomizer(){
    $('photo-message').textContent='Фото примерено. «Повторить» покажет его волшебный подлёт.';
    parent.postMessage({type:'photo-chosen',file},location.origin);$('photo-name').textContent=file.name;$('fit-options').hidden=false;$('restore-demo').hidden=false;
    document.querySelectorAll('[data-fit]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.fit===fitMode)));
-  }catch(err){showFinished();$('photo-message').textContent=err.message;$('customizer').classList.add('visible');$('customizer').inert=false;$('controls-panel').showModal();}
+  }catch(err){showFinished();$('photo-message').textContent=err.message;$('customizer').classList.add('visible');$('customizer').inert=false;openCustomizer();}
   finally{if(url)URL.revokeObjectURL(url);e.target.value='';}
  };
  document.querySelectorAll('[data-fit]').forEach(b=>b.onclick=()=>{fitMode=b.dataset.fit;document.querySelectorAll('[data-fit]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));repaint();});
@@ -160,7 +160,27 @@ function buildCustomizer(){
 }
 function resize(){const rect=$('stage').getBoundingClientRect(),w=Math.max(1,rect.width),h=Math.max(1,rect.height);renderer.setSize(w,h);camera.aspect=w/h;camera.fov=THREE.MathUtils.radToDeg(2*Math.atan(Math.max(.155,.185/camera.aspect)/(2*.42)));camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe($('stage'));
-$('open-controls').onclick=()=>{if(!ready)return;showFinished();$('controls-panel').showModal();};
+function openCustomizer(){showFinished();document.body.classList.add('editing');$('controls-panel').show();$('open-controls').textContent='Скрыть цвета';resize();}
+$('controls-panel').addEventListener('close',()=>{document.body.classList.remove('editing');$('open-controls').textContent='Цвета и фото';resize();});
+$('open-controls').onclick=()=>{if(!ready)return;if($('controls-panel').open)$('controls-panel').close();else openCustomizer();};
+$('save-mockup').onclick=async()=>{
+ if(!ready)return;
+ const button=$('save-mockup');button.disabled=true;button.textContent='Сохраняю…';
+ try{
+  if(elapsed<6.25)showFinished();
+  running=false;clip.pause();updateUI(elapsed);controls.update();
+  const oldRatio=renderer.getPixelRatio(),oldSize=renderer.getSize(new THREE.Vector2());
+  let data;
+  try{
+   const scale=1800/Math.max(oldSize.x,oldSize.y);
+   renderer.setPixelRatio(1);renderer.setSize(Math.round(oldSize.x*scale),Math.round(oldSize.y*scale),false);
+   renderer.render(scene,camera);data=renderer.domElement.toDataURL('image/png');
+  }finally{renderer.setPixelRatio(oldRatio);renderer.setSize(oldSize.x,oldSize.y,false);renderer.render(scene,camera);}
+  await parent.saveMugPreview({data,name:$('photo-name').textContent,body:$('body-name').textContent,handle:$('handle-name').textContent});
+  button.textContent='Сохранить вид';
+ }catch{button.textContent='Повторить сохранение';$('caption').textContent='Не удалось сохранить вид. Попробуйте ещё раз.';}
+ finally{button.disabled=false;}
+};
 $('close-controls').onclick=()=>$('controls-panel').close();
 addEventListener('resize',resize);resize();
 $('replay').onclick=()=>{if(!ready)return;home();elapsed=0;running=true;renderAt(0);};
