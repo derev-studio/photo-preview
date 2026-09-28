@@ -1,12 +1,29 @@
 import {uploadPhoto,storageReady} from './photo-storage.js?v=7';
-const effects={remove:'e_background_removal/f_png',fill:'c_pad,w_1536,h_1024,b_gen_fill'};
-export function transformUrl(url,kind){
- const u=new URL(url);
- if(u.origin!=='https://res.cloudinary.com'||!/^\/i1lysqxk\/image\/upload\/v\d+\/[\w/.-]+$/.test(u.pathname)||!effects[kind])throw Error('Не удалось подготовить фото для обработки.');
- return url.replace('/upload/','/upload/'+effects[kind]+'/');
+export const effectNames={remove:'без фона',edges:'чёткие края',extract:'выделенный объект',fill:'расширенное',restore:'восстановленное',enhance:'свет и цвет',auto:'улучшенное',upscale:'увеличенное',erase:'без лишнего',replace:'замена объекта',recolor:'новый цвет',generate:'новый ИИ-фон',background:'новый фон'};
+const effects={remove:'e_background_removal/f_png',edges:'e_background_removal:fineedges_n/f_png',fill:'c_pad,w_1536,h_1024,b_gen_fill',restore:'e_gen_restore',enhance:'e_enhance',auto:'e_auto_enhance',upscale:'c_limit,w_1600,h_1600/e_upscale/c_limit,w_4096,h_4096'};
+function prompt(value){
+ const text=String(value||'').trim();if(!text||text.length>180)throw Error('Введите описание до 180 символов.');
+ // Only words and punctuation that cannot introduce URL transformation syntax.
+ if(!/^[\p{L}\p{N} ,.!?\-]+$/u.test(text))throw Error('Используйте слова, цифры, пробелы и простую пунктуацию.');
+ return encodeURIComponent(text).replace(/[!'()*]/g,c=>'%'+c.charCodeAt(0).toString(16));
 }
-export async function processPhoto(url,kind,signal){
- const target=transformUrl(url,kind);
+export function transformUrl(url,kind,options={}){
+ const u=new URL(url);
+ if(u.origin!=='https://res.cloudinary.com'||!/^\/i1lysqxk\/image\/upload\/v\d+\/[\w/.-]+$/.test(u.pathname)||!Object.hasOwn(effectNames,kind))throw Error('Не удалось подготовить фото для обработки.');
+ let effect=effects[kind];
+ if(kind==='extract')effect='e_extract:prompt_'+prompt(options.prompt)+'/f_png';
+ if(kind==='erase')effect='e_gen_remove:prompt_'+prompt(options.prompt);
+ if(kind==='replace')effect='e_gen_replace:from_'+prompt(options.prompt)+';to_'+prompt(options.to);
+ if(kind==='generate')effect='e_gen_background_replace:prompt_'+prompt(options.prompt);
+ if(kind==='recolor'){
+  if(!/^#[0-9a-f]{6}$/i.test(options.color||''))throw Error('Выберите цвет.');
+  effect='e_gen_recolor:prompt_'+prompt(options.prompt)+';to-color_'+options.color.slice(1);
+ }
+ if(!effect)throw Error('Неизвестная обработка.');
+ return url.replace('/upload/','/upload/'+effect+'/');
+}
+export async function processPhoto(url,kind,signal,options={}){
+ const target=transformUrl(url,kind,options);
  for(let i=0;i<24;i++){
   signal.throwIfAborted();
   const response=await fetch(target,{signal});
@@ -36,7 +53,8 @@ export function setupPhotoAI({getItem,saveCopy}){
  const lock=value=>buttons().forEach(b=>b.disabled=value);
  const reset=()=>{epoch++;controller?.abort();controller=null;if(objectURL)URL.revokeObjectURL(objectURL);objectURL='';result=null;original=null;cutout=null;$('large-apply').disabled=false;lock(false);$('ai-result-actions').hidden=true;status.textContent='Обработка в Cloudinary. Оригинал останется; результат можно сохранить копией.';};
  $('large-photo').addEventListener('close',reset);
- async function run(effect,background){
+ async function run(effect,background,options={}){
+  try{transformUrl("https://res.cloudinary.com/i1lysqxk/image/upload/v1/check.jpg",effect==='background'?'remove':effect,options);}catch(e){status.textContent=e.message;return;}
   const item=getItem();if(!item||!storageReady)return;
   const cachedCutout=cutout;reset();$('large-image').src=item.data;original={...item};kind=effect;const token=epoch;controller=new AbortController();const signal=controller.signal;
   lock(true);status.textContent='ИИ обрабатывает фото… Можно закрыть окно для отмены.';
@@ -46,8 +64,8 @@ export function setupPhotoAI({getItem,saveCopy}){
    if(!(effect==='background'&&cachedCutout)&&!/^https:\/\/res.cloudinary.com\/i1lysqxk\/image\/upload\/v\d+\//.test(url)){
     const r=await fetch(url,{signal});if(!r.ok)throw Error('Не удалось прочитать оригинал.');url=await uploadPhoto(await r.blob(),signal);
    }
-   const processed=effect==='background'&&cachedCutout?cachedCutout:await processPhoto(url,effect==='background'?'remove':effect,signal);if(token!==epoch)return;
-   if(effect==='remove'||effect==='background')cutout=processed;
+   const processed=effect==='background'&&cachedCutout?cachedCutout:await processPhoto(url,effect==='background'?'remove':effect,signal,options);if(token!==epoch)return;
+   if(['remove','edges','extract','background'].includes(effect))cutout=processed;
    result=background?await composeBackground(processed,background):processed;if(token!==epoch)return;
    objectURL=URL.createObjectURL(result);const im=new Image();im.src=objectURL;await im.decode();if(token!==epoch)return;
    $('large-image').src=objectURL;$('large-apply').disabled=true;$('ai-result-actions').hidden=false;status.textContent='Готово. Сравните и сохраните понравившийся результат.';
@@ -60,6 +78,13 @@ export function setupPhotoAI({getItem,saveCopy}){
   if(file.size>20*1024*1024){status.textContent='Выберите фон до 20 МБ.';return;}
   if(!/^image\/(jpeg|png|webp|avif)$/.test(file.type)){status.textContent='Для фона нужен JPG, PNG, WebP или AVIF. HEIC сохраните как JPG.';return;}
   run('background',file);
+ };
+ panel.querySelectorAll('[data-ai-effect]').forEach(b=>b.onclick=()=>run(b.dataset.aiEffect));
+ $('ai-command').onclick=()=>run($('ai-operation').value,undefined,{prompt:$('ai-prompt').value,to:$('ai-replacement').value,color:$('ai-color').value});
+ $('ai-operation').onchange=()=>{
+  const operation=$('ai-operation').value;
+  $('ai-replacement-label').hidden=operation!=='replace';$('ai-color-label').hidden=operation!=='recolor';
+  $('ai-prompt-label').firstChild.textContent=operation==='generate'?'Опишите новый фон':operation==='extract'?'Что сохранить на фото?':'Какой объект изменить?';
  };
  $('ai-remove').onclick=()=>run('remove');$('ai-fill').onclick=()=>run('fill');
  $('ai-before').onclick=()=>{if(original)$('large-image').src=original.data;};

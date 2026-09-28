@@ -5,3 +5,5 @@
 #photo-scroll{height:68dvh;max-width:100%;overflow:auto;border-radius:12px;background:#eeeee7;margin:0 auto 18px}#photo-scroll img{margin:0 auto;height:100%;max-width:100%;object-fit:contain}#photo-scroll.zoomed img{width:200%;max-width:none;height:auto;max-height:none;margin:0}@media(max-width:650px){#photo-scroll{height:60dvh}#photo-scroll img{height:100%}#photo-scroll.zoomed img{height:auto}}
 
 #ai-photo-tools{margin:12px 0 18px;padding:12px;border:1px solid #d9dfd3;border-radius:16px}#ai-photo-tools summary{cursor:pointer;font-size:18px;font-weight:650;padding:8px}#ai-photo-tools p{font-size:16px;line-height:1.45}#ai-result-actions{margin-top:12px}
+
+.ai-extra{margin:16px 0;border-top:1px solid #deded3;padding-top:8px}#ai-photo-tools select,#ai-photo-tools input:not([type=color]){display:block;width:100%;padding:12px;border:1px solid #b8c5b5;border-radius:12px;font:inherit;background:white;color:#344534}#ai-photo-tools label{font-size:16px}#ai-photo-tools .actions{flex-wrap:wrap}#ai-color{width:80px;height:44px}
