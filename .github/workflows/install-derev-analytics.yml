@@ -1,0 +1,29 @@
+name: Install Derev analytics
+on:
+  push:
+    paths: ['.github/workflows/install-derev-analytics.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add shared analytics
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          site='photo-preview'; tracker='<script defer src="https://derev-studio.github.io/photo-gallery/analytics-client.js"></script>\n'
+          for p in Path('.').rglob('*.html'):
+              if '.git' in p.parts: continue
+              s=p.read_text(encoding='utf-8',errors='ignore'); old=s
+              if 'analytics-client.js' not in s and '</head>' in s: s=s.replace('</head>',tracker+'</head>',1)
+              if s!=old: p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit
+        run: |
+          git config user.name "derev-analytics-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add .
+          git diff --cached --quiet || (git commit -m "Add shared visitor analytics" && git push)
