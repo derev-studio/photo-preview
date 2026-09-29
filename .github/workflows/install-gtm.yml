@@ -1,0 +1,30 @@
+name: Install GTM
+
+on:
+  push:
+    paths:
+      - '.github/workflows/install-gtm.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Google Tag Manager in index.html
+        run: >-
+          python3 -c "from pathlib import Path; import re; p=Path('index.html'); s=p.read_text(encoding='utf-8'); g='GTM-TCJQ8R2P'; h='<!-- Google Tag Manager -->\\n<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({\"gtm.start\":new Date().getTime(),event:\"gtm.js\"});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!=\"dataLayer\"?\"&l=\"+l:\"\";j.async=true;j.src=\"https://www.googletagmanager.com/gtm.js?id=\"+i+dl;f.parentNode.insertBefore(j,f);})(window,document,\"script\",\"dataLayer\",\"GTM-TCJQ8R2P\");</script>\\n<!-- End Google Tag Manager -->'; b='<!-- Google Tag Manager (noscript) -->\\n<noscript><iframe src=\"https://www.googletagmanager.com/ns.html?id=GTM-TCJQ8R2P\" height=\"0\" width=\"0\" style=\"display:none;visibility:hidden\"></iframe></noscript>\\n<!-- End Google Tag Manager (noscript) -->'; s=s if g in s else re.sub(r'(<head[^>]*>)',r'\\1\\n'+h,s,count=1,flags=re.I); s=s if g in s and 'ns.html?id=GTM-TCJQ8R2P' in s else re.sub(r'(<body[^>]*>)',r'\\1\\n'+b,s,count=1,flags=re.I); p.write_text(s,encoding='utf-8')"
+      - name: Commit changes
+        run: |
+          if git diff --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Install GTM container GTM-TCJQ8R2P"
+          git push
